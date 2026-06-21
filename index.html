@@ -209,7 +209,7 @@
 <div class="tc" id="tc-boost">&#9889;</div>
 <div id="kbd-legend">
   <b>V</b> view (cockpit/chase/bumper/top) &nbsp; <b>P</b> pit &nbsp; <b>R</b> mirrors &nbsp; <b>N</b> music &nbsp; <b>M</b> mute
-  &nbsp;<span style="opacity:.5">·</span>&nbsp; <span class="vtag">v53</span>
+  &nbsp;<span style="opacity:.5">·</span>&nbsp; <span class="vtag">v56</span>
 </div>
 <div id="tc-strip">
   <div class="tcbtn" id="tc-view"><span class="ic">◱</span><span class="lb">VIEW</span></div>
@@ -430,6 +430,18 @@ const EVENTS_TORONTO=[
   {name:"Midnight at the CN Tower",laps:7,rev:true,night:true,tod:"night",ai:[1.01,1.07],mult:2.0,wx:"wet",
    desc:"Reversed, in the wet, under the CN Tower's glow, against the fastest grid of the season."},
 ];
+const EVENTS_BANFF=[
+  {name:"Banff Avenue Sprint",laps:3,rev:false,night:false,tod:"day",ai:[0.88,0.94],mult:1.0,wx:"dry",
+   desc:"A short dash down Banff Avenue beneath Cascade Mountain. The grid is green and so are you."},
+  {name:"Bow Valley Grand Prix",laps:6,rev:false,night:false,tod:"dusk",ai:[0.92,0.98],mult:1.2,wx:"damp",
+   desc:"The full valley loop \u2014 the Bow River, the pines, the Banff Springs above. Brake markers matter now."},
+  {name:"Sulphur Mountain Night",laps:6,rev:true,night:true,tod:"night",ai:[0.95,1.01],mult:1.4,wx:"dry",
+   desc:"The valley runs backwards under the stars, the peaks black against the sky. Every braking point is a trap."},
+  {name:"Rockies Endurance",laps:8,rev:false,night:false,tod:"dusk",ai:[0.98,1.04],mult:1.7,wx:"dry",
+   desc:"Eight laps of the Bow Valley. Consistency beats heroics \u2014 the cold tarmac gives little grip."},
+  {name:"Midnight at the Springs",laps:7,rev:true,night:true,tod:"night",ai:[1.01,1.07],mult:2.0,wx:"wet",
+   desc:"Reversed, in the wet, under the lit turrets of the Banff Springs, against the fastest grid of the season."},
+];
 let EVENTS=EVENTS_VICTORIA;
 const CITY={
   victoria:{name:"Victoria, BC", sub:"The Garden City", events:EVENTS_VICTORIA, backdrop:"olympic",
@@ -438,8 +450,10 @@ const CITY={
     circuits:["stampede"]},
   toronto:{name:"Toronto, ON", sub:"The Six", events:EVENTS_TORONTO, backdrop:"skyline",
     circuits:["exhibition"]},
+  banff:{name:"Banff, AB", sub:"In the Heart of the Rockies", events:EVENTS_BANFF, backdrop:"rockies",
+    circuits:["banff"]},
 };
-const CITY_KEYS=["victoria","calgary","toronto"];
+const CITY_KEYS=["victoria","calgary","toronto","banff"];
 function setCity(k){ if(!CITY[k])k="victoria"; meta.city=k; EVENTS=CITY[k].events;
   if(CITY[k].circuits.indexOf(meta.circuit)<0)meta.circuit=CITY[k].circuits[0];
   if(meta.event>=EVENTS.length)meta.event=0; }
@@ -530,18 +544,30 @@ const CIRCUITS={
   stampede:{name:"Stampede Sprint", blurb:"A downtown street loop along the Bow \u2014 past the Saddledome and Stampede grounds, Calgary Tower inland, the Rockies on the horizon.",
     land:"calgary", water:"calgary",
     ctrl:[
-    [560,1820],[980,1960],[1440,2010],[1900,1980],[2260,1860],
-    [2520,1620],[2560,1300],[2440,1060],[2560,820],[2420,540],
-    [2040,430],[1640,430],[1260,480],[940,620],[720,860],
-    [600,1160],[700,1440],[560,1620]
+    [1700,2120],[2200,2030],[2640,1860],[3200,1800],[3760,1580],
+    [4120,1180],[4000,720],[3500,420],[2960,330],[2460,340],
+    [1980,320],[1480,360],[1000,470],[520,620],[-40,760],
+    [-560,920],[-1080,1120],[-1560,1420],[-1820,1820],[-1560,2180],
+    [-1000,2280],[-440,2180],[120,2100],[640,2040],[1080,1920],
+    [1420,2040],[1600,2110]
   ]},
   /* Toronto \u2014 Exhibition Street Circuit: the lakeshore loop around Exhibition Place, Honda-Indy style */
   exhibition:{name:"Exhibition Street Circuit", blurb:"The lakeshore street circuit around Exhibition Place \u2014 a long Lake Shore straight, tight grounds corners, CN Tower and Rogers Centre on the skyline, Lake Ontario to the south.",
     land:"toronto", water:"toronto",
     ctrl:[
-    [480,1560],[760,1440],[1180,1400],[1640,1420],[2080,1400],
-    [2420,1500],[2560,1740],[2520,1980],[2280,2140],[1840,2200],
-    [1360,2210],[900,2200],[560,2120],[420,1860],[520,1680]
+    [620,1750],[900,2080],[1450,2260],[2150,2290],[2850,2230],
+    [3550,2090],[4150,1850],[4600,1480],[4750,950],[4520,460],
+    [4000,180],[3350,130],[2650,210],[1950,360],[1400,540],
+    [950,760],[680,1150],[600,1480]
+  ]},
+  /* Banff \u2014 a scenic Bow Valley loop ringed by the Rockies, the Banff Springs above the river */
+  banff:{name:"Bow Valley Circuit", blurb:"A scenic mountain loop through the Bow Valley \u2014 Banff Avenue, the pines, and the Banff Springs Hotel, the Rockies on every side.",
+    land:"banff", water:"banff",
+    ctrl:[
+    [1400,2200],[1850,2150],[2200,1980],[2380,1660],[2300,1320],
+    [2420,1000],[2260,700],[1880,560],[1460,540],[1060,620],
+    [760,820],[560,1140],[640,1480],[520,1800],[760,2060],
+    [1080,2180]
   ]}
 };
 let CTRL=CIRCUITS.harbour.ctrl;
@@ -615,19 +641,21 @@ function nearestIdx(x,y,hint){
   }
   return best;
 }
-let BAKE_S=1;
+let BAKE_S=1, BAKE_OX=0, BAKE_OY=0;
 function bakeTrack(){
-  let maxX=-1e9,maxY=-1e9;
-  for(const p of line){maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}
-  const W0=maxX+400, H0=maxY+400;
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+  for(const p of line){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);}
+  BAKE_OX=Math.min(0,minX-200); BAKE_OY=Math.min(0,minY-200);   /* 0 for ordinary circuits; negative only when a track runs west of origin */
+  const W0=(maxX-BAKE_OX)+400, H0=(maxY-BAKE_OY)+400;
   BAKE_S=(typeof touchMode!=="undefined"&&touchMode)?0.5:1;
   trackCv.width=W0*BAKE_S; trackCv.height=H0*BAKE_S;
   const t=trackCv.getContext("2d");
-  t.setTransform(BAKE_S,0,0,BAKE_S,0,0);
   const grass=isNight?["#15240f","#182a12"]:["#27451f","#2c4d23"];
-  t.fillStyle=grass[0]; t.fillRect(0,0,W0,H0);
-  t.fillStyle=grass[1];
-  for(let y=0;y<H0;y+=120)for(let x=(y/120%2)*120;x<W0;x+=240)t.fillRect(x,y,120,120);
+  t.setTransform(1,0,0,1,0,0);                                  /* grass fills the whole canvas (canvas space) */
+  t.fillStyle=grass[0]; t.fillRect(0,0,trackCv.width,trackCv.height);
+  t.fillStyle=grass[1]; const gstep=120*BAKE_S;
+  for(let y=0;y<trackCv.height;y+=gstep)for(let x=((Math.floor(y/gstep))%2)*gstep;x<trackCv.width;x+=gstep*2)t.fillRect(x,y,gstep,gstep);
+  t.setTransform(BAKE_S,0,0,BAKE_S,-BAKE_OX*BAKE_S,-BAKE_OY*BAKE_S);  /* world space, offset so negatives land on-canvas */
   drawWater(t);
   function path(){t.beginPath();t.moveTo(line[0].x,line[0].y);for(let i=1;i<N;i++)t.lineTo(line[i].x,line[i].y);t.closePath();}
   t.lineJoin="round";t.lineCap="round";
@@ -678,7 +706,7 @@ function applyDamage(c,severity){
 }
 let cars=[], player=null, LAPS=3;
 let qualiGrid=null;
-const BASELAP={harbour:41, gorge:32, sidney:35.5, malahat:29, cordova:27, stampede:23, exhibition:20};   /* per-circuit reference lap for the quali grid */
+const BASELAP={harbour:41, gorge:32, sidney:35.5, malahat:29, cordova:27, stampede:45, exhibition:35, banff:22};   /* per-circuit reference lap for the quali grid */
 function playerStats(){
   const v=1+vetBonus();
   return {
@@ -1086,8 +1114,8 @@ function startRace(){
   }
   const _circ = CIRCUITS[meta.circuit]||CIRCUITS.harbour;
   CTRL = _circ.ctrl;
-  LAND  = _circ.land==="gorge" ? LAND_GORGE : _circ.land==="sidney" ? LAND_SIDNEY : _circ.land==="malahat" ? LAND_MALAHAT : _circ.land==="cordova" ? LAND_CORDOVA : _circ.land==="calgary" ? LAND_CALGARY : _circ.land==="toronto" ? LAND_TORONTO : LAND_HARBOUR;
-  WATER = _circ.water==="gorge"? WATER_GORGE : _circ.water==="sidney"? WATER_SIDNEY : _circ.water==="malahat"? WATER_MALAHAT : _circ.water==="cordova"? WATER_CORDOVA : _circ.water==="calgary"? WATER_CALGARY : _circ.water==="toronto"? WATER_TORONTO : WATER_HARBOUR;
+  LAND  = _circ.land==="gorge" ? LAND_GORGE : _circ.land==="sidney" ? LAND_SIDNEY : _circ.land==="malahat" ? LAND_MALAHAT : _circ.land==="cordova" ? LAND_CORDOVA : _circ.land==="calgary" ? LAND_CALGARY : _circ.land==="toronto" ? LAND_TORONTO : _circ.land==="banff" ? LAND_BANFF : LAND_HARBOUR;
+  WATER = _circ.water==="gorge"? WATER_GORGE : _circ.water==="sidney"? WATER_SIDNEY : _circ.water==="malahat"? WATER_MALAHAT : _circ.water==="cordova"? WATER_CORDOVA : _circ.water==="calgary"? WATER_CALGARY : _circ.water==="toronto"? WATER_TORONTO : _circ.water==="banff"? WATER_BANFF : WATER_HARBOUR;
   buildTrack(ev.rev);
   for(const _l of LAND){let bi=0,bd=1e18;for(let i=0;i<N;i++){const dx=line[i].x-_l.x,dy=line[i].y-_l.y,dd=dx*dx+dy*dy;if(dd<bd){bd=dd;bi=i;}}_l._e=elev?elev[bi]:0;}
   skids=[];sparks=[];dust=[];replayBuf=[];replayAccum=0;
@@ -1575,7 +1603,12 @@ const WATER_CALGARY=[
 ];
 const WATER_TORONTO=[
   /* Lake Ontario \u2014 the open water filling the south, the Lake Shore straight along its edge */
-  [[-200,2360],[700,2320],[1400,2360],[2100,2320],[2980,2380],[2980,3300],[-200,3300]],
+  [[-300,2400],[800,2350],[1700,2400],[2600,2360],[3500,2420],[4400,2380],[5200,2440],[5200,3400],[-300,3400]],
+];
+const WATER_BANFF=[
+  /* the Bow River winding through the valley, west of the circuit */
+  [[120,1500],[380,1560],[460,1820],[400,2080],[180,2160],[-120,2040],[-60,1760],[120,1620]],
+  [[200,1100],[420,1180],[440,1420],[260,1480],[120,1320]],
 ];
 let WATER=WATER_HARBOUR;
 function drawWater(t){
@@ -1790,6 +1823,7 @@ function _crPt(p0,p1,p2,p3,t){
 }
 function _hsh(n){ n=n|0; n=(n^61)^(n>>>16); n=n+(n<<3); n=n^(n>>>4); n=Math.imul(n,0x27d4eb2d); n=n^(n>>>15); return (n>>>0)/4294967296; }
 /* walk a circuit centreline and line both sides with rows of buildings (heritage near, glass towers behind) */
+function _okPlace(bx,by,cfg){ if(!cfg.clear)return true; for(const c of cfg.clear){const dx=bx-c[0],dy=by-c[1]; if(dx*dx+dy*dy<c[2]*c[2])return false;} return true; }
 function genCityWall(ctrl,cfg){
   const N=ctrl.length, Pt=i=>ctrl[((i%N)+N)%N];
   const samp=[];
@@ -1798,23 +1832,35 @@ function genCityWall(ctrl,cfg){
   for(let k=1;k<samp.length;k++){
     const sp=samp[k], dx=sp[0]-last[0], dy=sp[1]-last[1], d=Math.hypot(dx,dy)||0.001; acc+=d;
     if(acc>=cfg.gap){ acc=0; const nx=-dy/d, ny=dx/d;
+      /* downtown density falls off heading west out to Sarcee Trail \u2014 open road, clear mountain views */
+      let dens;
+      if(cfg.core){ const r=Math.hypot(sp[0]-cfg.core[0], sp[1]-cfg.core[1]);
+        dens=Math.max(0,Math.min(1,(cfg.core[3]-r)/(cfg.core[3]-cfg.core[2]))); }
+      else dens=Math.max(0,Math.min(1,(sp[0]-cfg.openX)/(cfg.coreX-cfg.openX)));
       for(const side of [-1,1]){ idx++;
-        const o0=cfg.setback + _hsh(idx*2+1)*28;                         /* near heritage street wall */
-        out.push({x:sp[0]+nx*side*o0, y:sp[1]+ny*side*o0, t:"lowrise",
-                  w:90+_hsh(idx*3)*70, h:0.55+_hsh(idx*5)*0.85, c:(_hsh(idx*7)*HERIT_N)|0, label:""});
-        if(_hsh(idx*11)>0.16){                                           /* glass tower row */
+        if(dens<=0.02){                                                  /* open Sarcee zone: scattered foothills, no city */
+          if(cfg.forest!==false && _hsh(idx*71)>0.5){ const of=cfg.setback+40+_hsh(idx*79)*200;
+            out.push({x:sp[0]+nx*side*of, y:sp[1]+ny*side*of, t:"fir", label:"", ph:_hsh(idx*83)*6}); }
+          continue;
+        }
+        if(_hsh(idx*2+1)<0.94*dens){                                     /* near low-rise/heritage street wall */
+          const o0=cfg.setback + _hsh(idx*3+1)*28;
+          out.push({x:sp[0]+nx*side*o0, y:sp[1]+ny*side*o0, t:"lowrise",
+                    w:90+_hsh(idx*3)*70, h:0.55+_hsh(idx*5)*0.85, c:(_hsh(idx*7)*HERIT_N)|0, label:""});
+        }
+        if(_hsh(idx*11)<0.82*dens){                                      /* glass tower row */
           const o1=cfg.setback+cfg.depth+_hsh(idx*13)*110;
           out.push({x:sp[0]+nx*side*o1, y:sp[1]+ny*side*o1, t:"gtower",
                     w:78+_hsh(idx*17)*92, h:0.5+_hsh(idx*19)*1.5, c:(_hsh(idx*23)*GLASS_N)|0,
                     crown:(_hsh(idx*29)*3)|0, label:""});
         }
-        if(_hsh(idx*31)>0.72){                                           /* occasional tall feature tower, set back */
+        if(_hsh(idx*31)<0.28*dens){                                      /* occasional tall feature tower, set back */
           const o2=cfg.setback+cfg.depth*2+_hsh(idx*37)*190;
           out.push({x:sp[0]+nx*side*o2, y:sp[1]+ny*side*o2, t:"gtower",
                     w:92+_hsh(idx*41)*80, h:1.25+_hsh(idx*43)*1.05, c:(_hsh(idx*47)*GLASS_N)|0,
                     crown:(_hsh(idx*53)*3)|0, label:""});
         }
-        if(side===1 && _hsh(idx*59)>0.83){                              /* a +15 skybridge over the canyon */
+        if(side===1 && _hsh(idx*59)<0.17*dens){                          /* a +15 skybridge over the canyon */
           const ob=cfg.setback+cfg.depth*0.5;
           out.push({x:sp[0]+nx*ob, y:sp[1]+ny*ob, t:"skybridge",
                     w:150+_hsh(idx*61)*120, lift:90+_hsh(idx*67)*70, label:""});
@@ -1823,15 +1869,29 @@ function genCityWall(ctrl,cfg){
     }
     last=sp;
   }
-  return out;
+  return out.filter(b=> b.t==="fir" || _okPlace(b.x,b.y,cfg));
 }
-const CAL_WALL_CFG={gap:215, setback:120, depth:150};
+const CAL_CLEAR=[
+  [1450,1650,300],[1750,1660,300],   /* Courts Centre + Crown office — keep a clear ring so they read */
+];
+const CAL_WALL_CFG={gap:220, setback:120, depth:150, core:[1750,1300,800,1900], clear:CAL_CLEAR};
 const LAND_CALGARY=[
   /* the Rockies on the western horizon (size-capped background) */
   {x:500,y:40,  t:"peak",       label:""},
   {x:1200,y:20, t:"peak",       label:""},
   {x:1900,y:30, t:"peak",       label:""},
   {x:2600,y:40, t:"peak",       label:""},
+  /* the Rockies out west, beyond Sarcee Trail — the open run's payoff */
+  {x:-2050,y:700, t:"peak",       label:""},
+  {x:-2350,y:1060,t:"peak",       label:"The Rockies"},
+  {x:-2550,y:1420,t:"peak",       label:""},
+  {x:-2300,y:1800,t:"peak",       label:""},
+  {x:-1950,y:1240,t:"peak",       label:""},
+  {x:-2150,y:2000,t:"peak",       label:""},
+  /* foothills on the approach */
+  {x:-500,y:560,  t:"fir",        label:"",ph:0.4},
+  {x:-650,y:2000, t:"fir",        label:"",ph:1.7},
+  {x:-820,y:900,  t:"fir",        label:"",ph:3.1},
   /* the downtown core, inland */
   {x:1500,y:1180,t:"skyline",   label:""},
   {x:1500,y:1300,t:"cdntower",  label:"Calgary Tower"},
@@ -1840,6 +1900,9 @@ const LAND_CALGARY=[
   /* Scotiabank Saddledome (SE) + the Stampede grounds */
   {x:2180,y:1500,t:"saddledome",label:"Scotiabank Saddledome"},
   {x:2300,y:1180,t:"ferris",    label:"Stampede Park"},
+  /* Calgary Courts Centre + Crown Prosecutors office (Centrium Place) */
+  {x:1450,y:1650,t:"courthouse",  label:"Calgary Courts Centre"},
+  {x:1750,y:1660,t:"crownoffice", label:"Crown Prosecutors Office"},
   /* the Peace Bridge over the Bow (north) */
   {x:1150,y:300, t:"peacebridge",label:"Peace Bridge"},
   /* foothills greenery */
@@ -1856,12 +1919,20 @@ const LAND_CALGARY=[
   /* a chinook arch sweeping the sky */
   {x:1500,y:560, t:"flyby",     label:"",dir:1,spd:0.05,ph:0.0,alt:170},
 ].concat(genCityWall(CIRCUITS.stampede.ctrl, CAL_WALL_CFG));
+const TOR_CLEAR=[
+  [1700,760,460],[1480,840,380],   /* CN Tower + Rogers Centre — keep clear */
+  [760,1180,220],                  /* Princes' Gates */
+];
+const TOR_WALL_CFG={gap:210, setback:120, depth:150, core:[1620,820,650,1700], clear:TOR_CLEAR, forest:false};
 const LAND_TORONTO=[
-  /* the skyline backdrop to the north */
-  {x:1150,y:840, t:"skyline",   label:""},
-  {x:2050,y:800, t:"skyline",   label:""},
-  {x:1480,y:820, t:"rogers",    label:"Rogers Centre"},
+  /* the financial-district heroes */
   {x:1700,y:760, t:"cntower",   label:"CN Tower"},
+  {x:1480,y:840, t:"rogers",    label:"Rogers Centre"},
+  /* the Don Valley Parkway — forested river valley on the east run */
+  {x:3950,y:560, t:"fir",label:"",ph:0.2},{x:4250,y:760, t:"fir",label:"",ph:1.0},
+  {x:4400,y:1050,t:"fir",label:"",ph:1.8},{x:4300,y:1380,t:"fir",label:"",ph:2.6},
+  {x:4050,y:1620,t:"fir",label:"",ph:3.4},{x:3700,y:300, t:"fir",label:"",ph:4.2},
+  {x:3450,y:1720,t:"fir",label:"",ph:5.0},{x:4520,y:380, t:"fir",label:"",ph:0.6},
   /* the Princes' Gates at the grounds entrance */
   {x:760, y:1180,t:"princegates",label:"Princes' Gates"},
   /* greenery on the Exhibition grounds (infield) */
@@ -1879,6 +1950,42 @@ const LAND_TORONTO=[
   {x:2050,y:2520,t:"gull",      label:"",sea:true,ph:2.0},
   /* a gull/plane out over the lake */
   {x:1400,y:1000,t:"flyby",     label:"",dir:1,spd:0.06,ph:0.0,alt:150},
+].concat(genCityWall(CIRCUITS.exhibition.ctrl, TOR_WALL_CFG));
+const LAND_BANFF=[
+  /* the peaks ringing the valley \u2014 Cascade, Rundle, Sulphur, Tunnel */
+  {x:1400,y:-260,t:"peak", label:"Cascade Mountain"},
+  {x:800,y:-200, t:"peak", label:""},
+  {x:2000,y:-200,t:"peak", label:""},
+  {x:2900,y:300, t:"peak", label:""},
+  {x:3100,y:900, t:"peak", label:"Mount Rundle"},
+  {x:2950,y:1500,t:"peak", label:""},
+  {x:2850,y:2100,t:"peak", label:""},
+  {x:2000,y:2700,t:"peak", label:""},
+  {x:1200,y:2750,t:"peak", label:""},
+  {x:300,y:2500, t:"peak", label:"Sulphur Mountain"},
+  {x:-100,y:1800,t:"peak", label:""},
+  {x:-150,y:1100,t:"peak", label:""},
+  {x:120,y:380,  t:"peak", label:"Tunnel Mountain"},
+  /* the Banff Springs Hotel overlooking the valley (SE) */
+  {x:2150,y:2050,t:"bsprings", label:"Banff Springs Hotel"},
+  /* Banff Avenue \u2014 a few alpine storefronts near the start straight */
+  {x:1300,y:1980,t:"lowrise", w:120,h:0.5, c:0,label:""},
+  {x:1550,y:1985,t:"lowrise", w:110,h:0.45,c:2,label:""},
+  {x:1050,y:2000,t:"lowrise", w:120,h:0.5, c:1,label:""},
+  /* dense evergreen forest through the valley */
+  {x:900,y:1200, t:"fir",label:"",ph:0.0},{x:1700,y:900, t:"fir",label:"",ph:0.6},
+  {x:2050,y:1250,t:"fir",label:"",ph:1.2},{x:1500,y:1300,t:"fir",label:"",ph:1.8},
+  {x:760,y:1600, t:"fir",label:"",ph:2.4},{x:1900,y:1650,t:"fir",label:"",ph:3.0},
+  {x:1150,y:1500,t:"fir",label:"",ph:3.6},{x:2250,y:1550,t:"fir",label:"",ph:4.2},
+  {x:680,y:980,  t:"fir",label:"",ph:4.8},{x:1350,y:760, t:"fir",label:"",ph:5.4},
+  {x:2150,y:780, t:"fir",label:"",ph:0.3},{x:560,y:1380, t:"fir",label:"",ph:1.1},
+  {x:1750,y:1400,t:"fir",label:"",ph:2.2},{x:1000,y:1750,t:"fir",label:"",ph:3.3},
+  {x:2300,y:1900,t:"fir",label:"",ph:4.0},{x:640,y:1900, t:"fir",label:"",ph:4.6},
+  /* the Bow River \u2014 canoes + an eagle over the valley */
+  {x:350,y:1950, t:"kayak",label:"",sea:true,ph:0.0},
+  {x:420,y:1650, t:"kayak",label:"",sea:true,ph:1.5},
+  {x:300,y:2200, t:"gull", label:"",sea:true,ph:0.0},
+  {x:1500,y:600, t:"flyby",label:"",dir:1,spd:0.04,ph:0.0,alt:200},
 ];
 let LAND=LAND_HARBOUR;
 function legLights(c,x,y,w,h,domeR){ // the famous outline of lights
@@ -1895,6 +2002,14 @@ function drawLandTop(l,camX,camY){
   const x=l.x-camX, y=l.y-camY+bob;
   cx.save();cx.translate(x,y);
   switch(l.t){
+    /* ===================== Banff ===================== */
+    case "bsprings":{
+      cx.fillStyle="rgba(0,0,0,.18)";cx.fillRect(-28+2,-20+2,56,40);
+      cx.fillStyle=isNight?"#3a3832":"#9a9488";cx.fillRect(-28,-20,56,40);
+      cx.fillStyle=isNight?"#1c3a34":"#4a8a7a";
+      for(const ox of [-20,-6,8,22]){cx.beginPath();cx.moveTo(ox-7,-20);cx.lineTo(ox,-28);cx.lineTo(ox+7,-20);cx.closePath();cx.fill();}
+      cx.beginPath();cx.moveTo(-7,-20);cx.lineTo(0,-32);cx.lineTo(7,-20);cx.closePath();cx.fill();
+      break;}
     /* ===================== generic downtown buildings ===================== */
     case "gtower":{ const sz=(l.w||100)*0.16; const pal=GLASSPAL[(l.c||0)%GLASS_N];
       cx.fillStyle="rgba(0,0,0,.16)";cx.fillRect(-sz*0.6+2,-sz*0.6+2,sz*1.2,sz*1.2);
@@ -1906,6 +2021,18 @@ function drawLandTop(l,camX,camY){
       cx.fillStyle=isNight?pal.nt:pal.dt;cx.fillRect(-sz*0.7,-sz*0.5,sz*1.4,sz*0.2);break;}
     case "skybridge":{ const sz=(l.w||200)*0.1;
       cx.fillStyle=isNight?"rgba(88,150,190,.5)":"rgba(150,196,226,.6)";cx.fillRect(-sz*0.5,-3,sz,6);break;}
+    /* ===================== Calgary civic landmarks ===================== */
+    case "courthouse":{
+      cx.fillStyle="rgba(0,0,0,.18)";cx.fillRect(-26+2,-16+2,52,32);
+      cx.fillStyle=isNight?"#15433d":"#5fa89a";cx.fillRect(-26,-16,24,32);cx.fillRect(2,-16,24,32);
+      cx.fillStyle=isNight?"#3a342a":"#b9ad90";cx.fillRect(-2,-16,4,32);
+      cx.fillStyle=isNight?"#2c281e":"#d8cba0";cx.fillRect(-18,10,36,8);break;}
+    case "crownoffice":{
+      cx.fillStyle="rgba(0,0,0,.18)";cx.fillRect(-18+2,-18+2,36,36);
+      cx.fillStyle=isNight?"#14304a":"#5a86b0";cx.fillRect(-18,-18,36,36);
+      cx.strokeStyle=isNight?"#6a727c":"#dfe3e8";cx.lineWidth=2;
+      cx.beginPath();cx.moveTo(-18,-18);cx.lineTo(-10,-18);cx.lineTo(-18,18);cx.stroke();
+      cx.fillStyle=isNight?"#c8ccd2":"#eef0f2";cx.beginPath();cx.moveTo(-20,18);cx.lineTo(-14,8);cx.lineTo(-6,18);cx.closePath();cx.fill();break;}
     /* ===================== Toronto ===================== */
     case "cntower":{
       cx.fillStyle="rgba(0,0,0,.2)";cx.beginPath();cx.ellipse(2,4,12,8,0,0,7);cx.fill();
@@ -2824,6 +2951,27 @@ function drawLandSprite(l,p,f){
   const sc=f/p.z, x=p.x, y=p.y;
   cx.save();
   switch(l.t){
+    /* ===================== Banff ===================== */
+    case "bsprings":{
+      const w=200*sc;
+      const stone=isNight?"#3a3832":"#9a9488", stoneD=isNight?"#2c2a25":"#7e786c",
+            roof=isNight?"#1c3a34":"#4a8a7a", roofD=isNight?"#143028":"#3a7062";
+      const wing=(ox,wd,hh)=>{
+        const cxc=x+ox*w, halfw=wd*w*0.5, top=y-hh*w;
+        cx.fillStyle=stone;cx.fillRect(cxc-halfw,top,wd*w,hh*w);
+        cx.fillStyle=stoneD;cx.fillRect(cxc+halfw*0.4,top,halfw*0.6,hh*w);
+        cx.fillStyle=isNight?"rgba(255,214,150,.5)":"#46504e";
+        const rows=Math.max(2,Math.round(hh*7));
+        for(let r=0;r<rows;r++)for(let c=0;c<3;c++)cx.fillRect(cxc-halfw*0.7+c*halfw*0.6,top+w*0.05+r*(hh*w*0.84/rows),halfw*0.38,Math.max(1,w*0.04));
+        cx.fillStyle=roof;cx.beginPath();cx.moveTo(cxc-halfw*1.05,top);cx.lineTo(cxc,top-wd*w*0.78);cx.lineTo(cxc+halfw*1.05,top);cx.closePath();cx.fill();
+        cx.fillStyle=roofD;cx.beginPath();cx.moveTo(cxc,top-wd*w*0.78);cx.lineTo(cxc+halfw*1.05,top);cx.lineTo(cxc,top);cx.closePath();cx.fill();
+      };
+      wing(-0.34,0.24,0.5); wing(0.34,0.24,0.46);
+      wing(-0.15,0.26,0.66); wing(0.16,0.24,0.6);
+      wing(0.0,0.22,0.92);
+      cx.strokeStyle=stoneD;cx.lineWidth=Math.max(0.6,w*0.006);
+      cx.beginPath();cx.moveTo(x,y-0.92*w-0.22*w*0.78);cx.lineTo(x,y-0.92*w-0.34*w);cx.stroke();
+      break;}
     /* ===================== generic downtown buildings ===================== */
     case "gtower":{
       const w=(l.w||90)*sc, h=w*(3+(l.h||1)*5);
@@ -2865,29 +3013,87 @@ function drawLandSprite(l,p,f){
       for(let i=1;i<8;i++){cx.beginPath();cx.moveTo(x-w*0.5+i*w/8,gy-h);cx.lineTo(x-w*0.5+i*w/8,gy);cx.stroke();}
       if(isNight){cx.fillStyle="rgba(200,228,255,.28)";cx.fillRect(x-w*0.5,gy-h,w,h);}
       break;}
+    /* ===================== Calgary civic landmarks ===================== */
+    case "courthouse":{
+      const w=190*sc, h=w*2.2;
+      const glass=isNight?"#15433d":"#5fa89a", glassD=isNight?"#0d302b":"#3f7e72",
+            pier=isNight?"#3a342a":"#b9ad90", pierD=isNight?"#2a261e":"#988c70";
+      for(const sgn of [-1,1]){
+        const tx=x+sgn*w*0.27;
+        cx.fillStyle=glass;cx.fillRect(tx-w*0.18,y-h,w*0.36,h);
+        cx.fillStyle=pier;cx.fillRect(tx-w*0.20,y-h,w*0.05,h);cx.fillRect(tx+w*0.15,y-h,w*0.05,h);
+        cx.fillStyle=isNight?"rgba(120,220,200,.10)":"rgba(255,255,255,.12)";
+        for(let yy=y-h+w*0.2; yy<y-h*0.2; yy+=w*0.16) cx.fillRect(tx-w*0.16,yy,w*0.32,Math.max(1,w*0.03));
+        cx.fillStyle=glassD;cx.fillRect(tx+w*0.10,y-h,w*0.06,h);
+        cx.fillStyle=pierD;cx.fillRect(tx-w*0.22,y-h-w*0.08,w*0.44,w*0.05);   /* cap fin */
+      }
+      cx.fillStyle=isNight?"#0a1a18":"#26443f";cx.fillRect(x-w*0.09,y-h*0.92,w*0.18,h*0.92);   /* recessed atrium */
+      cx.fillStyle=isNight?"#1c4a44":"#7fc0b2";cx.fillRect(x-w*0.09,y-h*0.84,w*0.18,h*0.12);   /* glass link */
+      const bh=h*0.18, bw=w*0.72;                                                              /* historic sandstone base */
+      cx.fillStyle=isNight?"#2c281e":"#d8cba0";cx.fillRect(x-bw*0.5,y-bh,bw,bh);
+      cx.fillStyle=isNight?"#221f17":"#bcaa82";cx.fillRect(x-bw*0.5,y-bh,bw,bh*0.16);
+      cx.fillStyle=isNight?"rgba(255,210,140,.5)":"#5a4a36";
+      for(let c=0;c<5;c++)cx.fillRect(x-bw*0.4+c*bw*0.18,y-bh*0.62,bw*0.1,bh*0.4);
+      if(isNight){cx.fillStyle="rgba(150,235,210,.5)";
+        for(const sgn of [-1,1]){const tx=x+sgn*w*0.27;
+          for(let r=0;r<12;r++)if((r+(sgn>0?1:0))%3<2)cx.fillRect(tx-w*0.15,y-h+w*0.3+r*(h*0.8)/12,w*0.30,Math.max(1,h/40));}}
+      break;}
+    case "crownoffice":{
+      const w=150*sc, h=w*2.4;
+      const glass=isNight?"#14304a":"#5a86b0", glassD=isNight?"#0d2236":"#3e6488";
+      cx.fillStyle=glass;cx.fillRect(x-w*0.5,y-h,w,h);
+      cx.fillStyle=glassD;cx.fillRect(x+w*0.22,y-h,w*0.28,h);
+      cx.fillStyle=isNight?"#243a4e":"#8a98a4";cx.fillRect(x+w*0.16,y-h,w*0.12,h*0.22);          /* accent panels */
+      cx.fillStyle=isNight?"#1c3346":"#6e8498";cx.fillRect(x+w*0.30,y-h*0.92,w*0.12,h*0.16);
+      cx.fillStyle=isNight?"rgba(120,180,230,.08)":"rgba(255,255,255,.10)";
+      for(let yy=y-h+w*0.2; yy<y; yy+=w*0.2) cx.fillRect(x-w*0.5,yy,w,Math.max(1,w*0.03));
+      /* exposed steel X-bracing up the left edge */
+      cx.strokeStyle=isNight?"#6a727c":"#dfe3e8";cx.lineWidth=Math.max(1,w*0.02);
+      const bx=x-w*0.5, bw=w*0.14, seg=h/9;
+      for(let i=0;i<9;i++){const yT=y-h+i*seg;
+        cx.beginPath();cx.moveTo(bx,yT);cx.lineTo(bx+bw,yT+seg);cx.moveTo(bx+bw,yT);cx.lineTo(bx,yT+seg);cx.stroke();}
+      cx.strokeStyle=isNight?"#4a525c":"#aeb4bc";cx.lineWidth=Math.max(0.8,w*0.012);
+      cx.beginPath();cx.moveTo(bx,y-h);cx.lineTo(bx,y);cx.moveTo(bx+bw,y-h);cx.lineTo(bx+bw,y);cx.stroke();
+      /* green diagrid corner spine */
+      cx.strokeStyle=isNight?"#1c5a3a":"#3a9a6a";cx.lineWidth=Math.max(0.8,w*0.012);
+      const gx=x+w*0.42;
+      for(let i=0;i<10;i++){const yT=y-h+i*h/10;cx.beginPath();cx.moveTo(gx,yT);cx.lineTo(gx+w*0.06,yT+h/20);cx.lineTo(gx,yT+h/10);cx.stroke();}
+      /* the folded white canopy at the plaza */
+      cx.fillStyle=isNight?"#c8ccd2":"#eef0f2";
+      cx.beginPath();cx.moveTo(x-w*0.34,y);cx.lineTo(x-w*0.30,y-h*0.20);cx.lineTo(x-w*0.02,y-h*0.14);cx.lineTo(x-w*0.06,y);cx.closePath();cx.fill();
+      cx.fillStyle=isNight?"#aab0b8":"#d6dade";
+      cx.beginPath();cx.moveTo(x-w*0.30,y-h*0.20);cx.lineTo(x-w*0.16,y-h*0.10);cx.lineTo(x-w*0.02,y-h*0.14);cx.closePath();cx.fill();
+      cx.fillStyle=isNight?"#3a3d42":"#9a9ea4";cx.fillRect(x-w*0.36,y-h*0.05,w*0.34,h*0.05);   /* granite base */
+      if(isNight){cx.fillStyle="rgba(150,200,240,.5)";
+        for(let r=0;r<14;r++)if((r*5)%4<2)cx.fillRect(x-w*0.34+(r%3)*w*0.2,y-h+w*0.3+r*(h*0.8)/14,w*0.16,Math.max(1,h/44));}
+      break;}
     /* ===================== Toronto ===================== */
     case "cntower":{
-      const w=170*sc, sh=isNight?"#3a3d44":"#c2c6cc", shD=isNight?"#2c2f36":"#a2a6ae";
+      const H=2000*sc, sw=H*0.022;
+      const sh=isNight?"#3a3d44":"#c2c6cc", shD=isNight?"#2c2f36":"#a2a6ae";
       cx.fillStyle=sh;cx.beginPath();
-      cx.moveTo(x-w*0.045,y);cx.lineTo(x-w*0.018,y-w*0.86);cx.lineTo(x+w*0.018,y-w*0.86);cx.lineTo(x+w*0.045,y);cx.closePath();cx.fill();
-      cx.fillStyle=shD;cx.fillRect(x+w*0.004,y-w*0.86,w*0.014,w*0.86);
-      cx.fillStyle=isNight?"#4a4d54":"#d8dbe0";cx.beginPath();cx.ellipse(x,y-w*0.7,w*0.12,w*0.055,0,0,7);cx.fill();
-      cx.fillStyle=isNight?"#2c2f36":"#a6aab2";cx.fillRect(x-w*0.12,y-w*0.7,w*0.24,w*0.05);
-      cx.fillStyle=isNight?"#1c3a4a":"#8fb4cc";cx.fillRect(x-w*0.115,y-w*0.69,w*0.23,w*0.022);
-      cx.fillStyle=isNight?"#5a5e66":"#e0e3e8";cx.beginPath();cx.arc(x,y-w*0.9,w*0.04,0,7);cx.fill();
-      cx.fillStyle="#9a9488";cx.fillRect(x-w*0.005,y-w*1.12,w*0.01,w*0.22);
-      if(isNight){cx.fillStyle="rgba(120,200,255,.6)";cx.fillRect(x-w*0.11,y-w*0.69,w*0.22,w*0.02);
-        cx.fillStyle="#ff4a4a";cx.beginPath();cx.arc(x,y-w*1.12,w*0.014,0,7);cx.fill();}
+      cx.moveTo(x-sw*2.2,y);cx.lineTo(x-sw*0.7,y-H*0.74);cx.lineTo(x+sw*0.7,y-H*0.74);cx.lineTo(x+sw*2.2,y);cx.closePath();cx.fill();
+      cx.fillStyle=shD;cx.fillRect(x+sw*0.15,y-H*0.74,sw*0.7,H*0.74);
+      const podY=y-H*0.62, podW=H*0.055;
+      cx.fillStyle=isNight?"#4a4d54":"#d8dbe0";cx.beginPath();cx.ellipse(x,podY,podW,podW*0.5,0,0,7);cx.fill();
+      cx.fillStyle=isNight?"#2c2f36":"#a6aab2";cx.fillRect(x-podW,podY-podW*0.4,podW*2,podW*0.85);
+      cx.fillStyle=isNight?"#1c3a4a":"#8fb4cc";cx.fillRect(x-podW*0.95,podY-podW*0.22,podW*1.9,podW*0.4);
+      cx.fillStyle=isNight?"#5a5e66":"#e0e3e8";cx.beginPath();cx.arc(x,y-H*0.82,H*0.022,0,7);cx.fill();
+      cx.fillStyle="#9a9488";cx.fillRect(x-sw*0.35,y-H,sw*0.7,H*0.26);
+      if(isNight){cx.fillStyle="rgba(120,200,255,.6)";cx.fillRect(x-podW*0.9,podY-podW*0.2,podW*1.8,podW*0.34);
+        cx.fillStyle="#ff4a4a";cx.beginPath();cx.arc(x,y-H,Math.max(1,sw*0.8),0,7);cx.fill();}
       break;}
     case "rogers":{
-      const w=150*sc, wall=isNight?"#33363e":"#cfd4dc", dome=isNight?"#3a3d44":"#b6bcc6", domeL=isNight?"#4a4d54":"#d8dce2";
-      cx.fillStyle=wall;cx.fillRect(x-w*0.34,y-w*0.18,w*0.68,w*0.18);
-      cx.beginPath();cx.ellipse(x,y,w*0.34,w*0.06,0,0,7);cx.fill();
-      cx.fillStyle=dome;cx.beginPath();cx.ellipse(x,y-w*0.18,w*0.34,w*0.2,0,Math.PI,2*Math.PI);cx.fill();
-      cx.fillStyle=domeL;cx.beginPath();cx.ellipse(x,y-w*0.18,w*0.22,w*0.14,0,Math.PI,2*Math.PI);cx.fill();
-      cx.strokeStyle=isNight?"#23262c":"#9aa0aa";cx.lineWidth=Math.max(0.8,w*0.01);
-      for(let i=1;i<4;i++){cx.beginPath();cx.ellipse(x,y-w*0.18,w*0.34*(i/4),w*0.2*(i/4),0,Math.PI,2*Math.PI);cx.stroke();}
-      if(isNight){cx.fillStyle="rgba(255,228,150,.4)";cx.fillRect(x-w*0.3,y-w*0.12,w*0.6,w*0.03);}
+      const w=280*sc, wall=isNight?"#33363e":"#cfd4dc", dome=isNight?"#3a3d44":"#b6bcc6", domeL=isNight?"#4a4d54":"#d8dce2";
+      cx.fillStyle=wall;cx.fillRect(x-w*0.36,y-w*0.22,w*0.72,w*0.22);
+      cx.beginPath();cx.ellipse(x,y,w*0.36,w*0.07,0,0,7);cx.fill();
+      cx.fillStyle=dome;cx.beginPath();cx.ellipse(x,y-w*0.22,w*0.36,w*0.30,0,Math.PI,2*Math.PI);cx.fill();
+      cx.fillStyle=domeL;cx.beginPath();cx.ellipse(x,y-w*0.22,w*0.24,w*0.21,0,Math.PI,2*Math.PI);cx.fill();
+      cx.strokeStyle=isNight?"#23262c":"#9aa0aa";cx.lineWidth=Math.max(0.8,w*0.012);
+      for(let i=1;i<4;i++){cx.beginPath();cx.ellipse(x,y-w*0.22,w*0.36*(i/4),w*0.30*(i/4),0,Math.PI,2*Math.PI);cx.stroke();}
+      cx.strokeStyle=isNight?"#1a1c20":"#8a909a";cx.lineWidth=Math.max(0.6,w*0.008);
+      for(let a=1;a<4;a++){const ang=Math.PI+a*Math.PI/4;cx.beginPath();cx.moveTo(x,y-w*0.22);cx.lineTo(x+Math.cos(ang)*w*0.36,y-w*0.22+Math.sin(ang)*w*0.30);cx.stroke();}
+      if(isNight){cx.fillStyle="rgba(255,228,150,.4)";cx.fillRect(x-w*0.32,y-w*0.14,w*0.64,w*0.035);}
       break;}
     case "princegates":{
       const w=140*sc, st=isNight?"#4a4740":"#d8d2c2", stD=isNight?"#3a3833":"#b8b2a2";
@@ -3927,7 +4133,7 @@ function drawCarTop(c,camX,camY){
 function drawTop(){
   const camX=player.x-VW/2, camY=player.y-VH/2;
   cx.fillStyle=isNight?"#0d160a":"#1d3318";cx.fillRect(0,0,VW,VH);
-  cx.drawImage(trackCv,0,0,trackCv.width,trackCv.height,-camX,-camY,trackCv.width/BAKE_S,trackCv.height/BAKE_S);
+  cx.drawImage(trackCv,0,0,trackCv.width,trackCv.height,BAKE_OX-camX,BAKE_OY-camY,trackCv.width/BAKE_S,trackCv.height/BAKE_S);
   /* tyre marks laid on the tarmac (under cars) */
   for(const s of skids){
     const sx=s.x-camX, sy=s.y-camY;
@@ -4459,7 +4665,7 @@ function drawReplay(){
   cx.save();
   cx.translate(VW/2,VH/2);cx.rotate(rot);cx.scale(zoom,zoom);cx.translate(-pc.x,-pc.y);
   /* baked track */
-  cx.drawImage(trackCv,0,0,trackCv.width,trackCv.height,0,0,trackCv.width/BAKE_S,trackCv.height/BAKE_S);
+  cx.drawImage(trackCv,0,0,trackCv.width,trackCv.height,BAKE_OX,BAKE_OY,trackCv.width/BAKE_S,trackCv.height/BAKE_S);
   /* skid marks (still present in their buffer) */
   for(const s of skids){const fade=(1-s.age/14)*(s.heavy?0.5:0.32);
     cx.strokeStyle="rgba(20,20,24,"+fade+")";cx.lineWidth=s.heavy?4:2.6;
@@ -4820,7 +5026,7 @@ function drawTitleFrame(){
   /* the actual baked Victoria circuit */
   if(trackCv&&trackCv.width){
     c.globalAlpha=0.96;
-    c.drawImage(trackCv,0,0,trackCv.width,trackCv.height,0,0,trackCv.width/BAKE_S,trackCv.height/BAKE_S);
+    c.drawImage(trackCv,0,0,trackCv.width,trackCv.height,BAKE_OX,BAKE_OY,trackCv.width/BAKE_S,trackCv.height/BAKE_S);
     c.globalAlpha=1;
   }
   /* landmarks, lit as if at dusk (reuse the top-down landmark renderer with a night feel) */
@@ -4871,7 +5077,7 @@ function endTitle(){
 buildTrack(false);
 renderGarage();
 startTitle();
-(function(){const b=document.getElementById("buildtag");if(b)b.textContent="engine ready · v53";})();
+(function(){const b=document.getElementById("buildtag");if(b)b.textContent="engine ready · v56";})();
 let last=performance.now();
 let frameErrs=0;
 function loop(now){
