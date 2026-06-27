@@ -291,7 +291,7 @@ const CIRCUITS = {
   cordova:{name:'Cordova Bay', ctrl:[[2150,2800],[2200,2300],[2225,1790],[2220,1280],[2175,780],[2070,440],[1800,300],[1380,270],[980,330],[640,500],[400,850],[330,1290],[450,1670],[330,2060],[400,2470],[620,2770],[1000,2870],[1460,2830],[1880,2800],[2030,2710]]},
   stampede:{name:'Stampede Sprint', ctrl:[[1700,2120],[2200,2030],[2640,1860],[3200,1800],[3760,1580],[4120,1180],[4000,720],[3500,420],[2960,330],[2460,340],[1980,320],[1480,360],[1000,470],[520,620],[-40,760],[-560,920],[-1080,1120],[-1560,1420],[-1820,1820],[-1560,2180],[-1000,2280],[-440,2180],[120,2100],[640,2040],[1080,1920],[1420,2040],[1600,2110]]},
   exhibition:{name:'Exhibition Street Circuit', backdrop:'skyline', ctrl:[[620,1750],[900,2080],[1450,2260],[2150,2290],[2850,2230],[3550,2090],[4150,1850],[4600,1480],[4750,950],[4520,460],[4000,180],[3350,130],[2650,210],[1950,360],[1400,540],[950,760],[680,1150],[600,1480]]},
-  banff:{name:'Legacy Trail', ctrl:[[560,2280],[1120,2360],[1700,2380],[2260,2340],[2740,2180],[3020,1900],[3080,1540],[2960,1220],[3060,880],[2900,560],[2520,400],[2040,360],[1560,380],[1080,350],[660,460],[400,760],[360,1160],[500,1500],[380,1840],[480,2080]], climb:400, roll:46},
+  banff:{name:'Legacy Trail', ctrl:[[560,2280],[1120,2360],[1700,2380],[2260,2340],[2740,2180],[3020,1900],[3080,1540],[2960,1220],[3060,880],[2900,560],[2520,400],[2040,360],[1560,380],[1080,350],[660,460],[400,760],[360,1160],[500,1500],[380,1840],[480,2080]], climb:400, roll:46, scale:0.255},
 };
 const _HASH=location.hash.slice(1).split('/');
 const TRACK_ID=(_HASH[0].match(/^(harbour|gorge|sidney|malahat|cordova|stampede|exhibition|banff)$/)||[])[0]||'stampede';
@@ -631,33 +631,37 @@ const LAND_TORONTO=[
   {x:800,y:2500,t:"gull",label:"",sea:true},{x:1550,y:2470,t:"gull",label:"",sea:true},{x:2050,y:2520,t:"gull",label:"",sea:true},
   {x:1400,y:1000,t:"flyby",label:""},
 ];
-const WATERS={harbour:WATER_HARBOUR,gorge:WATER_GORGE,sidney:WATER_SIDNEY,malahat:WATER_MALAHAT,cordova:WATER_CORDOVA,stampede:WATER_CALGARY,exhibition:WATER_TORONTO};
+const WATER_BANFF=[
+  /* Vermilion Lakes on the valley floor near the Banff end */
+  [[1850,980],[2230,1000],[2320,1120],[2180,1230],[1880,1200],[1760,1080]],
+  /* Two Jack / Lake Minnewanka in the corridor */
+  [[1120,1560],[1480,1500],[1640,1680],[1500,1900],[1160,1860],[1040,1690]],
+];
+const WATERS={harbour:WATER_HARBOUR,gorge:WATER_GORGE,sidney:WATER_SIDNEY,malahat:WATER_MALAHAT,cordova:WATER_CORDOVA,stampede:WATER_CALGARY,exhibition:WATER_TORONTO,banff:WATER_BANFF};
 const LAND_BANFF=[
-  /* the Rockies ringing the Bow Valley */
-  {x:2350,y:120,  t:"cascade", label:"Cascade Mtn"},
-  {x:3050,y:1500, t:"rundle",  label:"Mount Rundle"},
-  {x:1000,y:120,  t:"sulphur", label:"Sulphur Mtn"},
-  {x:200, y:2600, t:"sister",  label:"Three Sisters"},
-  {x:370, y:2520, t:"sister",  label:""},
-  {x:540, y:2580, t:"sister",  label:""},
-  {x:3160,y:640,  t:"peak",    label:""},
-  {x:2820,y:2700, t:"peak",    label:""},
-  {x:80,  y:1380, t:"peak",    label:""},
-  {x:1500,y:80,   t:"peak",    label:""},
-  /* montane spruce + lodgepole pine through the wildlife corridor */
+  /* the Rockies ringing the Bow Valley — far background, huge, labelled */
+  {x:1720,y:-831, t:"cascade", label:"Cascade Mtn"},
+  {x:3916,y:1365, t:"rundle",  label:"Mount Rundle"},
+  {x:3273,y:-188, t:"sulphur", label:"Sulphur Mtn"},
+  {x:-476,y:1365, t:"sister",  label:"Three Sisters"},
+  {x:-476,y:1620, t:"sister",  label:""},
+  {x:-476,y:1110, t:"sister",  label:""},
+  {x:3273,y:2918, t:"peak",    label:""},
+  {x:167, y:2918, t:"peak",    label:""},
+  {x:1720,y:3561, t:"peak",    label:""},
+  {x:167, y:-188, t:"peak",    label:""},
+  {x:3916,y:680,  t:"peak",    label:""},
+  {x:3916,y:2050, t:"peak",    label:""},
+  /* montane spruce + lodgepole pine through the wildlife corridor (road-guarded) */
   {x:1500,y:1100, t:"fir", label:"", ph:0.0},
   {x:1850,y:1350, t:"fir", label:"", ph:0.7},
   {x:2200,y:1600, t:"fir", label:"", ph:1.3},
-  {x:1300,y:1500, t:"fir", label:"", ph:2.0},
-  {x:1700,y:1750, t:"fir", label:"", ph:2.6},
+  {x:1320,y:1180, t:"fir", label:"", ph:2.0},
+  {x:1700,y:1050, t:"fir", label:"", ph:2.6},
   {x:2400,y:1000, t:"fir", label:"", ph:3.2},
   {x:900, y:1700, t:"fir", label:"", ph:0.5},
   {x:2600,y:1300, t:"fir", label:"", ph:1.8},
   {x:1150,y:1250, t:"fir", label:"", ph:2.3},
-  /* rock cuts where the trail hugs the slope */
-  {x:3120,y:1100, t:"bluff", label:""},
-  {x:3140,y:1850, t:"bluff", label:""},
-  {x:260, y:1280, t:"bluff", label:""},
 ];
 const LANDS={harbour:LAND_HARBOUR,gorge:LAND_GORGE,sidney:LAND_SIDNEY,malahat:LAND_MALAHAT,cordova:LAND_CORDOVA,stampede:LAND_CALGARY,exhibition:LAND_TORONTO,banff:LAND_BANFF};
 const WATER=WATERS[TRACK_ID]||[]; const LAND=LANDS[TRACK_ID]||[];
@@ -753,7 +757,7 @@ if(MODE==='quali'){
 }
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
-const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:50};
+const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:75};
 const DIFFS=[{n:'Rookie',mul:0.86},{n:'Pro',mul:1.0},{n:'Ace',mul:1.14}]; let diffIdx=1;
 const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0};
 const timeEl=document.getElementById('rtime'), bestEl=document.getElementById('rbest'), drsEl=document.getElementById('drs'), tyreFill=document.getElementById('tyrefill');
