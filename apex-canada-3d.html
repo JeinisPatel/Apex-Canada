@@ -990,6 +990,14 @@ function asphaltTexture(){
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;return t;
 }
 
+// procedural speckle texture: base colour + layered specks → tarmac grain, grass tuft, etc.
+function surfTex(base, specks, S){
+  S=S||256; const c=document.createElement('canvas'); c.width=c.height=S; const x=c.getContext('2d');
+  x.fillStyle=base; x.fillRect(0,0,S,S);
+  for(let s=0;s<specks.length;s++){ const sp=specks[s]; x.fillStyle=sp[0];
+    for(let i=0;i<sp[1];i++){ const w=1+Math.random()*sp[2]; x.fillRect(Math.random()*S,Math.random()*S,w,w*(0.6+Math.random()*0.8)); } }
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4; return t;
+}
 function buildTrack(){
   const group = new THREE.Group();
   const pos=[], col=[], idx=[], uv=[]; const REPV=64;
@@ -1005,7 +1013,8 @@ function buildTrack(){
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   geo.setIndex(idx); geo.computeVertexNormals();
-  const road=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x26272b,roughness:.95,metalness:0,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+  const _asph=surfTex('#2a2b30',[['rgba(74,77,84,0.30)',1500,2],['rgba(15,15,19,0.55)',1000,2],['rgba(120,124,132,0.10)',300,1]]);
+  const road=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0xffffff,map:_asph,roughness:.95,metalness:0,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
   road.receiveShadow=true; group.add(road);
   group.add(makeLaneLines()); group.add(makeKerbs()); group.add(makeRails()); group.add(makeStartLine());
   return group;
@@ -1303,7 +1312,9 @@ function buildWorld(){
   const CL=[]; for(let i=0;i<260;i++){const cp=curve.getPointAt(i/260); CL.push(cp.x,cp.z);}
   function tooClose(x,z,m){const R=m||ROAD_W*1.35; for(let j=0;j<CL.length;j+=2){const dx=CL[j]-x,dz=CL[j+1]-z; if(dx*dx+dz*dz<R*R) return true;} return false;}
   // ground
-  const _GP=2600*Math.max(1,SCALE/0.17); const ground=new THREE.Mesh(new THREE.PlaneGeometry(_GP,_GP),new THREE.MeshStandardMaterial({color:0x2f3a2a,roughness:.97}));
+  const _GP=2600*Math.max(1,SCALE/0.17);
+  const _grass=surfTex('#2f3a2a',[['rgba(64,86,48,0.5)',1100,3],['rgba(40,54,34,0.55)',800,3],['rgba(88,106,60,0.32)',450,2],['rgba(22,30,18,0.5)',300,4]]); _grass.repeat.set(_GP/24,_GP/24);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(_GP,_GP),new THREE.MeshStandardMaterial({color:0xffffff,map:_grass,roughness:.97}));
   ground.rotation.x=-Math.PI/2; ground.position.y=-.5; ground.receiveShadow=true; g.add(ground);
   // hillside embankment: drops from each road edge down to the ground so the road never floats
   (function(){
