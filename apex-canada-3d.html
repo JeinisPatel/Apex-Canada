@@ -169,7 +169,7 @@
     <button data-m="race">Race</button><button data-m="quali">Quali</button><button id="diffbtn" class="diff">AI · Pro</button><button id="pitbtn" class="diff pit">PIT</button><button id="onlinebtn" class="diff online">ONLINE</button>
   </div>
   <div class="hud" id="tracks">
-    <button data-t="harbour">Harbour</button><button data-t="gorge">Gorge</button><button data-t="sidney">Sidney</button><button data-t="malahat">Malahat</button><button data-t="cordova">Cordova</button><button data-t="stampede">Calgary</button><button data-t="exhibition">Toronto</button>
+    <button data-t="harbour">Harbour</button><button data-t="gorge">Gorge</button><button data-t="sidney">Sidney</button><button data-t="malahat">Malahat</button><button data-t="cordova">Cordova</button><button data-t="stampede">Calgary</button><button data-t="exhibition">Toronto</button><button data-t="banff">Banff</button>
   </div>
   <div id="ribbon">WebGL Prototype</div>
   <div id="flash"></div>
@@ -291,9 +291,10 @@ const CIRCUITS = {
   cordova:{name:'Cordova Bay', ctrl:[[2150,2800],[2200,2300],[2225,1790],[2220,1280],[2175,780],[2070,440],[1800,300],[1380,270],[980,330],[640,500],[400,850],[330,1290],[450,1670],[330,2060],[400,2470],[620,2770],[1000,2870],[1460,2830],[1880,2800],[2030,2710]]},
   stampede:{name:'Stampede Sprint', ctrl:[[1700,2120],[2200,2030],[2640,1860],[3200,1800],[3760,1580],[4120,1180],[4000,720],[3500,420],[2960,330],[2460,340],[1980,320],[1480,360],[1000,470],[520,620],[-40,760],[-560,920],[-1080,1120],[-1560,1420],[-1820,1820],[-1560,2180],[-1000,2280],[-440,2180],[120,2100],[640,2040],[1080,1920],[1420,2040],[1600,2110]]},
   exhibition:{name:'Exhibition Street Circuit', backdrop:'skyline', ctrl:[[620,1750],[900,2080],[1450,2260],[2150,2290],[2850,2230],[3550,2090],[4150,1850],[4600,1480],[4750,950],[4520,460],[4000,180],[3350,130],[2650,210],[1950,360],[1400,540],[950,760],[680,1150],[600,1480]]},
+  banff:{name:'Legacy Trail', ctrl:[[560,2280],[1120,2360],[1700,2380],[2260,2340],[2740,2180],[3020,1900],[3080,1540],[2960,1220],[3060,880],[2900,560],[2520,400],[2040,360],[1560,380],[1080,350],[660,460],[400,760],[360,1160],[500,1500],[380,1840],[480,2080]], climb:400, roll:46},
 };
 const _HASH=location.hash.slice(1).split('/');
-const TRACK_ID=(_HASH[0].match(/^(harbour|gorge|sidney|malahat|cordova|stampede|exhibition)$/)||[])[0]||'stampede';
+const TRACK_ID=(_HASH[0].match(/^(harbour|gorge|sidney|malahat|cordova|stampede|exhibition|banff)$/)||[])[0]||'stampede';
 const MP_ROOM=(_HASH[1]==='mp' && _HASH[2])?_HASH[2].replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,8):null;
 const MODE=MP_ROOM?'race':((_HASH[1]==='quali')?'quali':'race');
 let net=null;
@@ -631,7 +632,34 @@ const LAND_TORONTO=[
   {x:1400,y:1000,t:"flyby",label:""},
 ];
 const WATERS={harbour:WATER_HARBOUR,gorge:WATER_GORGE,sidney:WATER_SIDNEY,malahat:WATER_MALAHAT,cordova:WATER_CORDOVA,stampede:WATER_CALGARY,exhibition:WATER_TORONTO};
-const LANDS={harbour:LAND_HARBOUR,gorge:LAND_GORGE,sidney:LAND_SIDNEY,malahat:LAND_MALAHAT,cordova:LAND_CORDOVA,stampede:LAND_CALGARY,exhibition:LAND_TORONTO};
+const LAND_BANFF=[
+  /* the Rockies ringing the Bow Valley */
+  {x:2350,y:120,  t:"cascade", label:"Cascade Mtn"},
+  {x:3050,y:1500, t:"rundle",  label:"Mount Rundle"},
+  {x:1000,y:120,  t:"sulphur", label:"Sulphur Mtn"},
+  {x:200, y:2600, t:"sister",  label:"Three Sisters"},
+  {x:370, y:2520, t:"sister",  label:""},
+  {x:540, y:2580, t:"sister",  label:""},
+  {x:3160,y:640,  t:"peak",    label:""},
+  {x:2820,y:2700, t:"peak",    label:""},
+  {x:80,  y:1380, t:"peak",    label:""},
+  {x:1500,y:80,   t:"peak",    label:""},
+  /* montane spruce + lodgepole pine through the wildlife corridor */
+  {x:1500,y:1100, t:"fir", label:"", ph:0.0},
+  {x:1850,y:1350, t:"fir", label:"", ph:0.7},
+  {x:2200,y:1600, t:"fir", label:"", ph:1.3},
+  {x:1300,y:1500, t:"fir", label:"", ph:2.0},
+  {x:1700,y:1750, t:"fir", label:"", ph:2.6},
+  {x:2400,y:1000, t:"fir", label:"", ph:3.2},
+  {x:900, y:1700, t:"fir", label:"", ph:0.5},
+  {x:2600,y:1300, t:"fir", label:"", ph:1.8},
+  {x:1150,y:1250, t:"fir", label:"", ph:2.3},
+  /* rock cuts where the trail hugs the slope */
+  {x:3120,y:1100, t:"bluff", label:""},
+  {x:3140,y:1850, t:"bluff", label:""},
+  {x:260, y:1280, t:"bluff", label:""},
+];
+const LANDS={harbour:LAND_HARBOUR,gorge:LAND_GORGE,sidney:LAND_SIDNEY,malahat:LAND_MALAHAT,cordova:LAND_CORDOVA,stampede:LAND_CALGARY,exhibition:LAND_TORONTO,banff:LAND_BANFF};
 const WATER=WATERS[TRACK_ID]||[]; const LAND=LANDS[TRACK_ID]||[];
 
 const ROAD_W = 18;
@@ -725,7 +753,7 @@ if(MODE==='quali'){
 }
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
-const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35};
+const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:50};
 const DIFFS=[{n:'Rookie',mul:0.86},{n:'Pro',mul:1.0},{n:'Ace',mul:1.14}]; let diffIdx=1;
 const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0};
 const timeEl=document.getElementById('rtime'), bestEl=document.getElementById('rbest'), drsEl=document.getElementById('drs'), tyreFill=document.getElementById('tyrefill');
@@ -1265,7 +1293,7 @@ function buildWorld(){
     wheel.position.set(0,11,0); k.add(wheel);
     for(const sx of[-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.4,.55,15,6),new THREE.MeshStandardMaterial({color:0x8a9098,roughness:.6})); leg.position.set(sx*4.5,7,.7); leg.rotation.z=sx*.34; leg.castShadow=true; k.add(leg);}
     k.position.set(wx,0,wz); ANIM.push(t=>{ wheel.rotation.z=t*.22; }); return k;}
-  const MTN_T={peak:[110,80],hill:[55,55],bluff:[34,46],lookout:[26,30]};
+  const MTN_T={peak:[110,80],hill:[55,55],bluff:[34,46],lookout:[26,30],cascade:[185,135],rundle:[165,150],sulphur:[150,120],sister:[120,80]};
   const BOAT_T={boat:'',sailboat:'sail',kayak:'small',rower:'small',seaplane:'small',cruise:'big',cruise2:'big',ferry:'big'};
   const SKIP_T=['gull','gulls','geese','geeseV','heron','eagle','windsurf','swan','airliner'];
   const CL=[]; for(let i=0;i<260;i++){const cp=curve.getPointAt(i/260); CL.push(cp.x,cp.z);}
