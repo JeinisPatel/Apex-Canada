@@ -107,9 +107,23 @@
   @media (orientation:landscape) and (max-height:440px){
     #tc-steer,#tc-drive{bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
   }
-  body.touch #dash{left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);min-width:0;text-align:center}
-  body.touch #standings{top:50%;bottom:auto;right:auto;left:calc(env(safe-area-inset-left,0px) + 12px);transform:translateY(-50%);width:166px}
-  body.touch #menubtn{padding:8px 11px;font-size:11px}
+  body.touch #ribbon{display:none}
+  body.touch #brand{display:none}
+  body.touch #dash{
+    top:calc(env(safe-area-inset-top,0px) + 6px);bottom:auto;left:50%;right:auto;transform:translateX(-50%);
+    display:flex;flex-flow:row wrap;align-items:center;justify-content:center;gap:5px 14px;
+    padding:6px 14px;min-width:0;max-width:84vw;text-align:left;
+    background:rgba(9,12,18,.24);border:1px solid rgba(255,255,255,.12);border-left:1px solid rgba(255,255,255,.12);
+    border-radius:15px;backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px)}
+  body.touch #dash #speed{font-size:25px;line-height:1;margin:0}
+  body.touch #dash .unit{display:none}
+  body.touch #dash .row{display:flex;flex-direction:column;align-items:flex-start;gap:0;margin:0;padding:0;border:0;min-width:0}
+  body.touch #dash .row span{font-size:8px;letter-spacing:.1em;opacity:.6;text-transform:uppercase}
+  body.touch #dash .row b{font-size:13px;line-height:1.15}
+  body.touch #dash .row .tyre{width:42px;max-width:42px;margin:2px 0 0 0;align-self:flex-start}
+  body.touch #standings{top:50%;bottom:auto;right:auto;left:calc(env(safe-area-inset-left,0px) + 10px);transform:translateY(-50%);width:150px;background:rgba(10,13,18,.30);backdrop-filter:blur(12px)}
+  body.touch #menubtn{padding:8px 11px;font-size:11px;background:rgba(9,12,18,.34)}
+  body.touch #modes button,body.touch #tracks button{background:rgba(9,12,18,.42)}
   #standings{position:absolute;z-index:6;top:128px;right:14px;width:190px;background:rgba(10,13,18,.62);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:9px 11px;backdrop-filter:blur(8px);font-family:'Saira',system-ui,sans-serif}
   #standings .st-h{font-size:10px;letter-spacing:.22em;color:#8b95a3;font-weight:800;margin-bottom:6px}
   .st-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;color:#e7edf2}
@@ -624,6 +638,8 @@ const SAMPLES = Math.round(640*Math.max(1,SCALE/0.17));
 const keys = new Set();
 const cars = [];
 let view = 'CHASE';
+const VIEW_ORDER = ['CHASE','FAR','COCKPIT','CINEMATIC'];
+const VIEW_LABEL = {CHASE:'CHASE', FAR:'FAR CHASE', COCKPIT:'COCKPIT', CINEMATIC:'TV'};
 let camPos = new THREE.Vector3(0,40,-70);
 let camTarget = new THREE.Vector3();
 
@@ -1481,14 +1497,15 @@ function crashCar(car){
   if(car.isPlayer){ car.shake=0.5; flash(diffIdx===2?'CRASH \u2014 ENGINE ABLAZE':'CRASH \u2014 CAR DAMAGED'); if(diffIdx===2)car.onFire=true; }
 }
 function updateCamera(dt){
-  const p=player.mesh.position, f=curve.getTangentAt(player.progress).normalize(), r=new THREE.Vector3(f.z,0,-f.x).normalize(); let desired, look;
-  if(view==='COCKPIT'){desired=p.clone().addScaledVector(f,3.8).add(new THREE.Vector3(0,2.25,0)); look=p.clone().addScaledVector(f,55).add(new THREE.Vector3(0,2.1,0));}
-  else if(view==='BUMPER'){desired=p.clone().addScaledVector(f,6.5).add(new THREE.Vector3(0,.95,0)); look=p.clone().addScaledVector(f,70).add(new THREE.Vector3(0,1.15,0));}
-  else{desired=p.clone().addScaledVector(f,-23).addScaledVector(r,-player.steer*2).add(new THREE.Vector3(0,10.5,0)); look=p.clone().addScaledVector(f,36).add(new THREE.Vector3(0,3.2,0));}
-  const s=1-Math.pow(.0007,dt); camPos.lerp(desired,s); camTarget.lerp(look,s); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.lookAt(camTarget); camera.fov=THREE.MathUtils.lerp(camera.fov,view==='CHASE'?62+player.speed*.06:70+player.speed*.035,.05); camera.updateProjectionMatrix();
+  const p=player.mesh.position, f=curve.getTangentAt(player.progress).normalize(), r=new THREE.Vector3(f.z,0,-f.x).normalize(); let desired, look, fovT, follow=1-Math.pow(.0007,dt);
+  if(view==='COCKPIT'){desired=p.clone().addScaledVector(f,3.8).add(new THREE.Vector3(0,2.25,0)); look=p.clone().addScaledVector(f,55).add(new THREE.Vector3(0,2.1,0)); fovT=74+player.speed*.03;}
+  else if(view==='FAR'){desired=p.clone().addScaledVector(f,-32).addScaledVector(r,-player.steer*2).add(new THREE.Vector3(0,15,0)); look=p.clone().addScaledVector(f,40).add(new THREE.Vector3(0,3.4,0)); fovT=70+player.speed*.04;}
+  else if(view==='CINEMATIC'){desired=p.clone().addScaledVector(f,-9).addScaledVector(r,7.5).add(new THREE.Vector3(0,3.0,0)); look=p.clone().addScaledVector(f,16).add(new THREE.Vector3(0,1.5,0)); fovT=55+player.speed*.03; follow=1-Math.pow(.05,dt);}
+  else{desired=p.clone().addScaledVector(f,-14).addScaledVector(r,-player.steer*2).add(new THREE.Vector3(0,6.8,0)); look=p.clone().addScaledVector(f,32).add(new THREE.Vector3(0,2.6,0)); fovT=64+player.speed*.05;}
+  camPos.lerp(desired,follow); camTarget.lerp(look,follow); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.lookAt(camTarget); camera.fov=THREE.MathUtils.lerp(camera.fov,fovT,.05); camera.updateProjectionMatrix();
 }
 
-function cycleView(){view=view==='CHASE'?'COCKPIT':view==='COCKPIT'?'BUMPER':'CHASE'; viewEl.textContent=view;}
+function cycleView(){ const i=VIEW_ORDER.indexOf(view); view=VIEW_ORDER[(i+1)%VIEW_ORDER.length]; viewEl.textContent=VIEW_LABEL[view]; }
 function resize(){renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();}
 /* ============================ ONLINE MULTIPLAYER ============================ */
 /* Set this to your deployed PartyKit host (no protocol), e.g. apex-canada.jeinis.partykit.dev */
