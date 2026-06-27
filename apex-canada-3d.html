@@ -269,6 +269,7 @@ scene.background = new THREE.Color(0x07111f);
 scene.fog = new THREE.FogExp2(0x07111f, 0.0085);
 const camera = new THREE.PerspectiveCamera(64, 1, 0.1, 2200);
 const hemi = new THREE.HemisphereLight(0xbcd0ea, 0x20262e, 1.05); scene.add(hemi);
+const lightningLight = new THREE.HemisphereLight(0xcfe0ff, 0x8090a0, 0); scene.add(lightningLight);
 const sun = new THREE.DirectionalLight(0xfff1d0, 2.3);
 sun.position.set(-140, 260, 130);
 sun.castShadow = true;
@@ -781,7 +782,6 @@ function finishRace(){
 // --- engine audio (WebAudio; renderer-agnostic, in the spirit of v56 audioUpdate) ---
 let actx=null, eng=null, sub=null, engGain=null, audioOn=true, nbuf=null;
 const music={on:true,next:0,step:0,gain:null,duck:null}; let trackIdx=0;
-const crowd={gain:null,started:false};
 function initAudio(){
   if(actx) return;
   try{
@@ -795,22 +795,6 @@ function initAudio(){
     sub=actx.createOscillator(); sub.type='square'; sub.frequency.value=27;
     const sg=actx.createGain(); sg.gain.value=.5; sub.connect(sg); sg.connect(lp);
     eng.start(); sub.start();
-    // ---- crowd: layered filtered noise (low roar + mid wash + cheer brightness + vocal hiss) ----
-    crowd.gain=actx.createGain(); crowd.gain.gain.value=0; crowd.gain.connect(actx.destination);
-    const cbuf=actx.createBuffer(1, Math.floor(actx.sampleRate*3), actx.sampleRate); { const _c=cbuf.getChannelData(0); for(let _i=0;_i<_c.length;_i++)_c[_i]=Math.random()*2-1; }
-    const mkLayer=(type,freq,Q,base,lfoHz,lfoDepth,rate)=>{
-      const src=actx.createBufferSource(); src.buffer=cbuf; src.loop=true; src.playbackRate.value=rate;
-      const f=actx.createBiquadFilter(); f.type=type; f.frequency.value=freq; if(Q)f.Q.value=Q;
-      const g=actx.createGain(); g.gain.value=base;
-      src.connect(f); f.connect(g); g.connect(crowd.gain); src.start();
-      const lfo=actx.createOscillator(); lfo.type='sine'; lfo.frequency.value=lfoHz;
-      const ld=actx.createGain(); ld.gain.value=lfoDepth; lfo.connect(ld); ld.connect(g.gain); lfo.start();
-    };
-    mkLayer('lowpass',520,0.7,0.45,0.13,0.16,0.97);   // low roar
-    mkLayer('bandpass',950,0.6,0.32,0.19,0.15,1.0);   // mid wash
-    mkLayer('bandpass',1650,0.8,0.16,0.23,0.10,1.02); // cheer brightness
-    mkLayer('highpass',3200,0.5,0.09,0.29,0.05,1.05); // vocal hiss / whistles
-    crowd.started=true;
   }catch(err){ actx=null; }
 }
 function audioUpdate(){
@@ -821,25 +805,6 @@ function audioUpdate(){
   sub.frequency.setTargetAtTime(f*.5, now, .07);
   const g=audioOn ? (race.state==='finished' ? 0 : .035 + rev*.11) : 0;
   engGain.gain.setTargetAtTime(g, now, .09);
-}
-function crowdUpdate(dt){
-  if(!actx||!crowd.gain) return;
-  const now=actx.currentTime; let target=0;
-  if(audioOn){
-    const p=player.progress||0, dist=Math.min(p,1-p);
-    const gs=Math.max(0,(0.13-dist)/0.13);            // proximity to the main grandstands at start/finish
-    const base=0.045 + gs*gs*0.30;                    // faint distant murmur + swell as you pass the stands
-    let ev=0;
-    if(race.state==='countdown'){
-      ev=0.28 + 0.30*Math.min(1,(race.cd||0)/Math.max(0.1,race.goAt||3.4)); // anticipation builds to lights-out
-    } else if(race.state==='finished'){
-      ev=0.62;                                          // roar at the chequered flag
-    } else if(MODE!=='quali' && player.lap>=LAPS){
-      ev=Math.max(0,(p-0.78)/0.22)*0.50;                // surge over the final stretch of the last lap
-    }
-    target=Math.min(0.7, Math.max(base, ev));
-  }
-  crowd.gain.gain.setTargetAtTime(target, now, race.state==='finished'?0.06:0.35);
 }
 
 // ---- music: synth engine ported from v56 (trance / synthwave, no audio files) ----
@@ -889,18 +854,38 @@ function musicTick(){
   }
 }
 // ---- weather / atmosphere (layers on top of time-of-day) ----
-const WX=['CLEAR','OVERCAST','RAIN']; let wxIdx=0; let rainGroup=null, rainPos=null; const RAIN_N=900;
+const WX=['CLEAR','OVERCAST','RAIN','STORM']; let wxIdx=0; let rainGroup=null, rainPos=null; const RAIN_N=900;
+const storm={on:false,t:0,flash:0,thunderAt:0,thunderVol:0};
 function buildRain(){ const g=new THREE.BufferGeometry(); const arr=new Float32Array(RAIN_N*6);
   for(let i=0;i<RAIN_N;i++){ const x=(Math.random()-.5)*190,y=Math.random()*120,z=(Math.random()-.5)*190,len=2.6+Math.random()*2.6,o=i*6; arr[o]=x;arr[o+1]=y;arr[o+2]=z;arr[o+3]=x+0.7;arr[o+4]=y-len;arr[o+5]=z; }
   g.setAttribute('position',new THREE.BufferAttribute(arr,3));
   rainGroup=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0xa6bacb,transparent:true,opacity:.34})); rainGroup.frustumCulled=false; rainGroup.visible=false; rainPos=arr; scene.add(rainGroup); }
-function updateRain(dt){ if(!rainGroup||!rainGroup.visible)return; rainGroup.position.set(camera.position.x,0,camera.position.z); const fall=95*dt;
+function updateRain(dt){ if(!rainGroup||!rainGroup.visible)return; rainGroup.position.set(camera.position.x,0,camera.position.z); const fall=(storm.on?170:95)*dt;
   for(let i=0;i<RAIN_N;i++){ const o=i*6; rainPos[o+1]-=fall; rainPos[o+4]-=fall; if(rainPos[o+1]<0){ const y=110+Math.random()*22,len=2.6+Math.random()*2.6; rainPos[o+1]=y; rainPos[o+4]=y-len; } }
   rainGroup.geometry.attributes.position.needsUpdate=true; }
 function applyWX(i){ wxIdx=((i%WX.length)+WX.length)%WX.length; const wx=WX[wxIdx], t=TODS[todIdx];
   scene.background.setHex(t.sky); scene.fog.color.setHex(t.fog); scene.fog.density=t.fogD*FOGK; sun.intensity=t.si;
-  if(wx!=='CLEAR'){ const grey=new THREE.Color(0x8b95a3), a=wx==='RAIN'?.52:.34; scene.background.lerp(grey,a); scene.fog.color.lerp(grey,a); scene.fog.density = wx==='RAIN' ? Math.max(scene.fog.density*3.0,0.0072) : Math.max(scene.fog.density*1.7,0.0040); sun.intensity*=(wx==='RAIN'?.42:.62); }
-  if(rainGroup)rainGroup.visible=(wx==='RAIN'); }
+  const wet=(wx==='RAIN'||wx==='STORM');
+  if(wx!=='CLEAR'){ const grey=new THREE.Color(wx==='STORM'?0x4d5662:0x8b95a3), a=wx==='STORM'?.70:(wx==='RAIN'?.52:.34); scene.background.lerp(grey,a); scene.fog.color.lerp(grey,a); scene.fog.density = wx==='STORM' ? Math.max(scene.fog.density*3.6,0.0090) : (wx==='RAIN' ? Math.max(scene.fog.density*3.0,0.0072) : Math.max(scene.fog.density*1.7,0.0040)); sun.intensity*=(wx==='STORM'?.26:(wx==='RAIN'?.42:.62)); }
+  storm.on=(wx==='STORM'); if(storm.on && storm.t<=0) storm.t=1.2+Math.random()*2.5;
+  if(!storm.on && lightningLight) lightningLight.intensity=0;
+  if(rainGroup){ rainGroup.visible=wet; rainGroup.material.opacity = wx==='STORM'?.5:.34; } }
+function thunder(vol){ if(!actx) return; const t=actx.currentTime;
+  const src=actx.createBufferSource(); src.buffer=nbuf; src.loop=true; src.playbackRate.value=0.6+Math.random()*0.2;
+  const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.setValueAtTime(380,t); lp.frequency.exponentialRampToValueAtTime(80,t+2.0);
+  const g=actx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.05); g.gain.exponentialRampToValueAtTime(vol*0.25,t+0.6); g.gain.exponentialRampToValueAtTime(0.0001,t+2.6);
+  src.connect(lp); lp.connect(g); g.connect(actx.destination); src.start(t); src.stop(t+2.8);
+  const o=actx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(64,t); o.frequency.exponentialRampToValueAtTime(26,t+1.4);
+  const og=actx.createGain(); og.gain.setValueAtTime(0.0001,t); og.gain.linearRampToValueAtTime(vol*0.6,t+0.04); og.gain.exponentialRampToValueAtTime(0.0001,t+1.8);
+  o.connect(og); og.connect(actx.destination); o.start(t); o.stop(t+1.9);
+  if(vol>0.4){ const cr=actx.createBufferSource(); cr.buffer=nbuf; const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1400; bp.Q.value=0.7; const cg=actx.createGain(); cg.gain.setValueAtTime(vol*0.5,t); cg.gain.exponentialRampToValueAtTime(0.0001,t+0.25); cr.connect(bp); bp.connect(cg); cg.connect(actx.destination); cr.start(t); cr.stop(t+0.3); } }
+function stormUpdate(dt){
+  if(!storm.on){ if(lightningLight)lightningLight.intensity=0; return; }
+  storm.t-=dt;
+  if(storm.t<=0){ storm.flash=1; const dist=0.25+Math.random()*2.4; storm.thunderAt=(actx?actx.currentTime:0)+dist; storm.thunderVol=Math.max(0.12,0.62-dist*0.18); storm.t=3+Math.random()*8; }
+  if(storm.flash>0){ storm.flash-=dt*3.2; const f=Math.max(0,storm.flash), flick=0.55+0.45*Math.abs(Math.sin(performance.now()*0.045))+Math.random()*0.25; lightningLight.intensity=Math.min(4.2,f*f*4.2*flick); }
+  else lightningLight.intensity=0;
+  if(storm.thunderAt && actx && actx.currentTime>=storm.thunderAt){ thunder(storm.thunderVol); storm.thunderAt=0; } }
 // ---- transient toast ----
 const flashEl=document.getElementById('flash'); let _flashT=null;
 function flash(msg){ if(!flashEl)return; flashEl.textContent=msg; flashEl.classList.add('show'); clearTimeout(_flashT); _flashT=setTimeout(()=>flashEl.classList.remove('show'),1400); }
@@ -1639,7 +1624,7 @@ function createNet(){
 
 {const ob=document.getElementById('onlinebtn'); if(ob)ob.onclick=()=>{ location.hash=TRACK_ID+'/mp/'+mpCode(); location.reload(); };}
 if(MP_ROOM)net=createNet();
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(crowd.gain)crowd.gain.gain.value=0; renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); if(net)net.update(dt); updateCamera(dt); audioUpdate(); crowdUpdate(dt); musicTick(); updateRain(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
