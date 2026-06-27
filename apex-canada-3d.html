@@ -659,6 +659,11 @@ const LAND_BANFF=[
   {x:368, y:13,   t:"peak",    label:""},
   {x:3632,y:850,  t:"peak",    label:""},
   {x:3632,y:1880, t:"peak",    label:""},
+  /* Banff landmarks — placed in the infield, off the racing line */
+  {x:2200,y:1850, t:"springs",    label:"Banff Springs"},
+  {x:1000,y:1650, t:"rimrock",    label:"Rimrock"},
+  {x:1500,y:1300, t:"banffstrip", label:"Banff Ave"},
+  {x:1350,y:2050, t:"gondola",    label:"Sulphur Gondola"},
   /* montane spruce + lodgepole pine through the wildlife corridor (road-guarded) */
   {x:1500,y:1100, t:"fir", label:"", ph:0.0},
   {x:1850,y:1350, t:"fir", label:"", ph:0.7},
@@ -1363,6 +1368,74 @@ function buildWorld(){
     const wm=new THREE.Mesh(wg,WMAT); wm.position.y=-.35; wm.receiveShadow=true; g.add(wm);
   }
   // real landmarks
+  function mkBanffSprings(wx,wz){
+    const k=new THREE.Group();
+    const roof=new THREE.MeshStandardMaterial({color:0x36584f,roughness:.55,metalness:.15});
+    const stoneCol=0x6f6a60;
+    function wblock(w,hh,d,x,z){
+      const tx=windowTex(stoneCol,.34); tx.repeat.set(Math.max(2,Math.round(w/4.5)),Math.max(2,Math.round(hh/4.5)));
+      const b=new THREE.Mesh(new THREE.BoxGeometry(w,hh,d),new THREE.MeshStandardMaterial({map:tx,emissiveMap:tx,color:0xffffff,emissive:0x4a3a1a,emissiveIntensity:.42,roughness:.82}));
+      b.position.set(x,hh/2,z); b.castShadow=true; k.add(b);
+      const dg=Math.hypot(w,d);
+      const rf=new THREE.Mesh(new THREE.ConeGeometry(dg*0.5,hh*0.42,4),roof); rf.rotation.y=Math.PI/4; rf.position.set(x,hh+hh*0.2,z); rf.scale.set(w/dg,1,d/dg); rf.castShadow=true; k.add(rf);
+    }
+    const ttx=windowTex(stoneCol,.36); ttx.repeat.set(3,7);
+    const tw=new THREE.Mesh(new THREE.BoxGeometry(11,30,11),new THREE.MeshStandardMaterial({map:ttx,emissiveMap:ttx,color:0xffffff,emissive:0x4a3a1a,emissiveIntensity:.45,roughness:.82}));
+    tw.position.y=15; tw.castShadow=true; k.add(tw);
+    const spire=new THREE.Mesh(new THREE.ConeGeometry(8.2,17,4),roof); spire.rotation.y=Math.PI/4; spire.position.y=38.5; spire.castShadow=true; k.add(spire);
+    wblock(16,17,10,-12,2); wblock(16,15,10,13,3); wblock(11,14,9,2,-11);
+    for(const tp of [[-19,7],[20,8],[8,-15]]){ const t=new THREE.Mesh(new THREE.CylinderGeometry(1.8,1.8,16,10),new THREE.MeshStandardMaterial({color:stoneCol,roughness:.8})); t.position.set(tp[0],8,tp[1]); k.add(t);
+      const c=new THREE.Mesh(new THREE.ConeGeometry(2.3,5,10),roof); c.position.set(tp[0],18.5,tp[1]); k.add(c); }
+    k.position.set(wx,0,wz); return k;
+  }
+  function mkRimrock(wx,wz){
+    const k=new THREE.Group();
+    const roofMat=new THREE.MeshStandardMaterial({color:0x3a443f,roughness:.6});
+    const segs=[[-14,0,0.0],[0,1.6,0.16],[14,1,0.32]];
+    for(let i=0;i<segs.length;i++){ const w=16,hh=20-i*1.6,d=9;
+      const tx=windowTex(0x8e9197,.3); tx.repeat.set(4,Math.max(3,Math.round(hh/3.2)));
+      const b=new THREE.Mesh(new THREE.BoxGeometry(w,hh,d),new THREE.MeshStandardMaterial({map:tx,emissiveMap:tx,color:0xffffff,emissive:0x3a3320,emissiveIntensity:.35,roughness:.8}));
+      b.position.set(segs[i][0],hh/2,segs[i][1]); b.rotation.y=segs[i][2]; b.castShadow=true; k.add(b);
+      const rf=new THREE.Mesh(new THREE.BoxGeometry(w+1,1.6,d+1),roofMat); rf.position.set(segs[i][0],hh+0.8,segs[i][1]); rf.rotation.y=segs[i][2]; k.add(rf);
+    }
+    k.position.set(wx,0,wz); return k;
+  }
+  function mkBanffStrip(wx,wz){
+    const k=new THREE.Group();
+    const cols=[0x9a4a3a,0xb0895a,0xcabfa8,0x4a6a5a,0x8a5a44,0xa8a090], rc=[0x5a3a30,0x3a4a44,0x6a5a3a];
+    for(let i=0;i<6;i++){ const w=7,hh=7+(i%3)*2.2,d=8,x=-18+i*7.2;
+      const tx=windowTex(cols[i%cols.length],.3); tx.repeat.set(2,Math.max(2,Math.round(hh/3)));
+      const b=new THREE.Mesh(new THREE.BoxGeometry(w,hh,d),new THREE.MeshStandardMaterial({map:tx,emissiveMap:tx,color:0xffffff,emissive:0x3a2e18,emissiveIntensity:.4,roughness:.75}));
+      b.position.set(x,hh/2,0); b.castShadow=true; k.add(b);
+      const rf=new THREE.Mesh(new THREE.ConeGeometry(w*0.78,3.4,4),new THREE.MeshStandardMaterial({color:rc[i%3],roughness:.7})); rf.rotation.y=Math.PI/4; rf.position.set(x,hh+1.7,0); rf.scale.z=d/w*0.9; k.add(rf);
+      const sf=new THREE.Mesh(new THREE.BoxGeometry(w+.2,2.2,d+.2),new THREE.MeshStandardMaterial({color:0x2a2620,roughness:.6})); sf.position.set(x,1.3,0); k.add(sf);
+    }
+    const sw=new THREE.Mesh(new THREE.BoxGeometry(46,0.3,3),new THREE.MeshStandardMaterial({color:0x8a8d90,roughness:.9})); sw.position.set(0,0.16,5.4); k.add(sw);
+    k.position.set(wx,0,wz); return k;
+  }
+  function mkSulphurGondola(wx,wz){
+    const k=new THREE.Group();
+    const DX=70, TOP=46, BASEY=6;
+    const cableMat=new THREE.MeshStandardMaterial({color:0x1a1c20,roughness:.6});
+    const base=new THREE.Mesh(new THREE.BoxGeometry(8,5,7),new THREE.MeshStandardMaterial({color:0x7a7d82,roughness:.7})); base.position.set(0,2.5,0); base.castShadow=true; k.add(base);
+    const up=new THREE.Vector3(0,1,0), dir=new THREE.Vector3(DX,TOP-BASEY,0); const len=dir.length(); const q=new THREE.Quaternion().setFromUnitVectors(up,dir.clone().normalize());
+    for(const zoff of [-0.7,0.7]){ const cab=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,len,5),cableMat); cab.quaternion.copy(q); cab.position.set(DX/2,(BASEY+TOP)/2,zoff); k.add(cab); }
+    for(let i=1;i<4;i++){ const t=i/4, tx=DX*t, ty=BASEY+(TOP-BASEY)*t; const tow=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,9,6),new THREE.MeshStandardMaterial({color:0x44484e})); tow.position.set(tx,ty-4.5,0); k.add(tow); }
+    const sum=new THREE.Group();
+    sum.add(new THREE.Mesh(new THREE.CylinderGeometry(7,7.6,5,16),new THREE.MeshStandardMaterial({color:0xe8ecef,roughness:.5,metalness:.2})));
+    sum.children[0].position.y=2.5;
+    const sg=new THREE.Mesh(new THREE.CylinderGeometry(7.2,7.2,2.4,16),new THREE.MeshStandardMaterial({color:0x16384a,roughness:.3,metalness:.4,emissive:0x0a2230,emissiveIntensity:.3})); sg.position.y=5.6; sum.add(sg);
+    const deck=new THREE.Mesh(new THREE.CylinderGeometry(9,9,0.4,16),new THREE.MeshStandardMaterial({color:0x9a9da2,roughness:.8})); deck.position.y=0.2; sum.add(deck);
+    sum.position.set(DX,TOP-BASEY,0); k.add(sum);
+    const cabins=[];
+    for(let i=0;i<3;i++){ const c=new THREE.Group();
+      const body=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.4,2.0),new THREE.MeshStandardMaterial({color:0xc23a2e,roughness:.5})); body.position.y=-1.4; c.add(body);
+      const glass=new THREE.Mesh(new THREE.BoxGeometry(1.9,1.3,1.7),new THREE.MeshStandardMaterial({color:0x16384a,metalness:.4,roughness:.3})); glass.position.y=-1.0; c.add(glass);
+      const hang=new THREE.Mesh(new THREE.BoxGeometry(0.16,1.0,0.16),cableMat); hang.position.y=-0.2; c.add(hang);
+      k.add(c); cabins.push(c); }
+    ANIM.push((t)=>{ for(let i=0;i<cabins.length;i++){ const goup=(i%2===0); let u=(t*0.045+i*0.37)%1; if(!goup)u=1-u; cabins[i].position.set(DX*u, BASEY+(TOP-BASEY)*u, goup?-0.7:0.7); } });
+    k.rotation.y=2.5; k.position.set(wx,0,wz); return k;
+  }
   for(const l of LAND){
     const c=W2(l.x,l.y), wx=c[0], wz=c[1]; let h=12;
     if(l.t==='fir'){ if(!tooClose(wx,wz))g.add(mkFir(wx,wz,1+Math.random()*.5)); continue;}
@@ -1394,6 +1467,10 @@ function buildWorld(){
     else if(BOAT_T[l.t]!==undefined && l.t!=='sailboat'){g.add(mkBoat(wx,wz,BOAT_T[l.t])); h=4;}
     else if(l.t==='sailboat'){g.add(mkSail(wx,wz)); h=9;}
     else if(SKIP_T.indexOf(l.t)>=0){ continue; }
+    else if(l.t==='springs'){g.add(mkBanffSprings(wx,wz)); h=48;}
+    else if(l.t==='rimrock'){g.add(mkRimrock(wx,wz)); h=22;}
+    else if(l.t==='banffstrip'){g.add(mkBanffStrip(wx,wz)); h=14;}
+    else if(l.t==='gondola'){g.add(mkSulphurGondola(wx,wz)); h=8;}
     else { g.add(mkStruct(l.t,wx,wz)); h=(STRUCT[l.t]?STRUCT[l.t].h:12); }
     if(l.label) g.add(mkLabel(l.label,wx,wz,h+5));
   }
