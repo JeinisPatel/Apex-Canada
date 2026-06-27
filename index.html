@@ -63,6 +63,9 @@ a{color:inherit;text-decoration:none}
 .lede{margin-top:24px;max-width:30em;font-size:clamp(16px,1.5vw,19px);color:#c4cbd8}
 .lede b{color:var(--ink);font-weight:600}
 .hero-cta{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:30px}
+.ghost.online{border-color:rgba(57,210,192,.55);color:#39d2c0}
+.odot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#39d2c0;margin-right:9px;vertical-align:middle;box-shadow:0 0 10px #39d2c0;animation:opulse 1.4s ease-in-out infinite}
+@keyframes opulse{0%,100%{opacity:1}50%{opacity:.35}}
 .ghost{font-family:"Saira Condensed";font-weight:700;font-size:14px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--ink);padding:10px 16px;border-radius:7px;
   border:1px solid var(--line);transition:border-color .14s,color .14s}
@@ -163,6 +166,7 @@ a{color:inherit;text-decoration:none}
   <nav class="nav">
     <a href="#calendar" class="lnk">Calendar</a>
     <a href="#ladder" class="lnk">The Ladder</a>
+    <a href="#" class="lnk" id="goOnlineNav">Race Online</a>
     <a href="./apex-canada-3d.html" class="cta"><span class="dot"></span>Enter the Paddock</a>
   </nav>
 </div>
@@ -177,6 +181,7 @@ a{color:inherit;text-decoration:none}
     <div class="hero-cta">
       <a href="./apex-canada-3d.html" class="cta"><span class="dot"></span>Enter the Paddock</a>
       <a href="#calendar" class="ghost">Pick a circuit</a>
+      <a href="#" class="ghost online" id="goOnline"><span class="odot"></span>Race Online</a>
     </div>
     <div class="byline">By Jeinis Patel · <b>a bored Barrister &amp; moonlighting PhD Candidate</b></div>
   </div>
@@ -217,6 +222,8 @@ const CIRCUITS = {"harbour": {"city": "Victoria, BC", "name": "Harbour Circuit",
 const ORDER = ["harbour", "gorge", "sidney", "malahat", "cordova", "stampede", "exhibition"];
 const LADDER = [["Bored Barrister", "where every silk begins"], ["Weekend Wheelman", "billable hours, then track hours"], ["Moonlighting Racer", "the day job suspects nothing"], ["Counsel of Speed", "objection, your honour \u2014 overtaking"], ["Doctor of Velocity", "thesis pending, lap times falling"], ["Apex Silk", "called to the bar and the apex"]];
 const HERO = "malahat";
+function _startOnline(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let code=""; for(let i=0;i<4;i++)code+=A[Math.floor(Math.random()*A.length)]; location.href="./apex-canada-3d.html#"+HERO+"/mp/"+code; }
+for(const _id of ["goOnline","goOnlineNav"]){ const _b=document.getElementById(_id); if(_b)_b.addEventListener("click",e=>{e.preventDefault();_startOnline();}); }
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
 
 function pathFromCtrl(ctrl,W,H,pad){
