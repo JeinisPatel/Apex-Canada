@@ -781,6 +781,7 @@ function finishRace(){
 // --- engine audio (WebAudio; renderer-agnostic, in the spirit of v56 audioUpdate) ---
 let actx=null, eng=null, sub=null, engGain=null, audioOn=true, nbuf=null;
 const music={on:true,next:0,step:0,gain:null,duck:null}; let trackIdx=0;
+const crowd={gain:null,started:false};
 function initAudio(){
   if(actx) return;
   try{
@@ -794,6 +795,22 @@ function initAudio(){
     sub=actx.createOscillator(); sub.type='square'; sub.frequency.value=27;
     const sg=actx.createGain(); sg.gain.value=.5; sub.connect(sg); sg.connect(lp);
     eng.start(); sub.start();
+    // ---- crowd: layered filtered noise (low roar + mid wash + cheer brightness + vocal hiss) ----
+    crowd.gain=actx.createGain(); crowd.gain.gain.value=0; crowd.gain.connect(actx.destination);
+    const cbuf=actx.createBuffer(1, Math.floor(actx.sampleRate*3), actx.sampleRate); { const _c=cbuf.getChannelData(0); for(let _i=0;_i<_c.length;_i++)_c[_i]=Math.random()*2-1; }
+    const mkLayer=(type,freq,Q,base,lfoHz,lfoDepth,rate)=>{
+      const src=actx.createBufferSource(); src.buffer=cbuf; src.loop=true; src.playbackRate.value=rate;
+      const f=actx.createBiquadFilter(); f.type=type; f.frequency.value=freq; if(Q)f.Q.value=Q;
+      const g=actx.createGain(); g.gain.value=base;
+      src.connect(f); f.connect(g); g.connect(crowd.gain); src.start();
+      const lfo=actx.createOscillator(); lfo.type='sine'; lfo.frequency.value=lfoHz;
+      const ld=actx.createGain(); ld.gain.value=lfoDepth; lfo.connect(ld); ld.connect(g.gain); lfo.start();
+    };
+    mkLayer('lowpass',520,0.7,0.45,0.13,0.16,0.97);   // low roar
+    mkLayer('bandpass',950,0.6,0.32,0.19,0.15,1.0);   // mid wash
+    mkLayer('bandpass',1650,0.8,0.16,0.23,0.10,1.02); // cheer brightness
+    mkLayer('highpass',3200,0.5,0.09,0.29,0.05,1.05); // vocal hiss / whistles
+    crowd.started=true;
   }catch(err){ actx=null; }
 }
 function audioUpdate(){
@@ -804,6 +821,25 @@ function audioUpdate(){
   sub.frequency.setTargetAtTime(f*.5, now, .07);
   const g=audioOn ? (race.state==='finished' ? 0 : .035 + rev*.11) : 0;
   engGain.gain.setTargetAtTime(g, now, .09);
+}
+function crowdUpdate(dt){
+  if(!actx||!crowd.gain) return;
+  const now=actx.currentTime; let target=0;
+  if(audioOn){
+    const p=player.progress||0, dist=Math.min(p,1-p);
+    const gs=Math.max(0,(0.13-dist)/0.13);            // proximity to the main grandstands at start/finish
+    const base=0.045 + gs*gs*0.30;                    // faint distant murmur + swell as you pass the stands
+    let ev=0;
+    if(race.state==='countdown'){
+      ev=0.28 + 0.30*Math.min(1,(race.cd||0)/Math.max(0.1,race.goAt||3.4)); // anticipation builds to lights-out
+    } else if(race.state==='finished'){
+      ev=0.62;                                          // roar at the chequered flag
+    } else if(MODE!=='quali' && player.lap>=LAPS){
+      ev=Math.max(0,(p-0.78)/0.22)*0.50;                // surge over the final stretch of the last lap
+    }
+    target=Math.min(0.7, Math.max(base, ev));
+  }
+  crowd.gain.gain.setTargetAtTime(target, now, race.state==='finished'?0.06:0.35);
 }
 
 // ---- music: synth engine ported from v56 (trance / synthwave, no audio files) ----
@@ -1603,7 +1639,7 @@ function createNet(){
 
 {const ob=document.getElementById('onlinebtn'); if(ob)ob.onclick=()=>{ location.hash=TRACK_ID+'/mp/'+mpCode(); location.reload(); };}
 if(MP_ROOM)net=createNet();
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(crowd.gain)crowd.gain.gain.value=0; renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); if(net)net.update(dt); updateCamera(dt); audioUpdate(); crowdUpdate(dt); musicTick(); updateRain(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
