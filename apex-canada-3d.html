@@ -1080,15 +1080,16 @@ function buildWorld(){
     const cr=new THREE.Mesh(new THREE.IcosahedronGeometry(3.4*s,0),OAKC);cr.position.y=5.4*s;cr.scale.y=.85;cr.castShadow=true;k.add(cr);
     k.position.set(wx,0,wz);return k;}
   function mkMassif(wx,wz,h,r){
-    const geo=new THREE.ConeGeometry(r,h,9,4); const pos=geo.attributes.position, nn=pos.count;
+    const geo=new THREE.ConeGeometry(r,h,11,5); const pos=geo.attributes.position, nn=pos.count;
     for(let i=0;i<nn;i++){ const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i),rr=Math.hypot(x,z);
-      if(rr>1e-3){ const k=1+Math.sin(i*12.9898)*0.30; pos.setX(i,x*k); pos.setZ(i,z*k); }
-      pos.setY(i,y+Math.sin(i*4.7)*h*0.03); }
+      if(rr>1e-3){ const k=1+Math.sin(i*12.9898)*0.32+Math.sin(i*4.13)*0.12; pos.setX(i,x*k); pos.setZ(i,z*k); }
+      pos.setY(i,y+Math.sin(i*4.7)*h*0.035); }
     geo.computeVertexNormals();
     const top=h/2,bot=-h/2,col=new Float32Array(nn*3);
     const rock=new THREE.Color(0x556077),rockD=new THREE.Color(0x3a4253),snow=new THREE.Color(0xf7fbff),haze=new THREE.Color(0xbcd2e8);
-    for(let i=0;i<nn;i++){ const t=(pos.getY(i)-bot)/(top-bot);
-      const cc=t>0.78?snow.clone().lerp(rock,(1-t)/0.22*0.10):rockD.clone().lerp(rock,Math.pow(t/0.78,1.2));
+    for(let i=0;i<nn;i++){ const t=(pos.getY(i)-bot)/(top-bot), n=Math.sin(i*78.233)*0.5+0.5, snowT=0.74+n*0.10; let cc;
+      if(t>snowT){ cc=snow.clone().lerp(rock,(1-t)*0.16+n*0.05); }
+      else { cc=rockD.clone().lerp(rock,Math.pow(t/snowT,1.2)); cc.offsetHSL(0,(n-0.5)*0.05,(n-0.5)*0.13); }
       cc.lerp(haze,0.30);
       col[i*3]=cc.r; col[i*3+1]=cc.g; col[i*3+2]=cc.b; }
     geo.setAttribute('color',new THREE.BufferAttribute(col,3));
