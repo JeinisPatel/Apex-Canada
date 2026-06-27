@@ -1473,7 +1473,7 @@ function cycleView(){view=view==='CHASE'?'COCKPIT':view==='COCKPIT'?'BUMPER':'CH
 function resize(){renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();}
 /* ============================ ONLINE MULTIPLAYER ============================ */
 /* Set this to your deployed PartyKit host (no protocol), e.g. apex-canada.jeinis.partykit.dev */
-const PARTY_HOST='apex-canada.jeinispatel.partykit.dev';
+const PARTY_HOST='apex-canada.jeinis-s-patel.workers.dev';
 const MP_LIVERY=[[0xe8443a,0x6a1a14],[0x3a7fe8,0x10316e],[0xf0c860,0x7a5410],[0x9a5ae8,0x3c1a6e],[0x3ecf6e,0x0f5e2c],[0xe87fd0,0x6e1a5a],[0xff8a3a,0x7a3a10],[0x4ad6c0,0x0e5a52]];
 const MP_NAMES=['Falcon','Comet','Viper','Bolt','Lynx','Apex','Rebel','Storm','Maple','Drift'];
 function mpCode(){ let s=''; for(let i=0;i<4;i++)s+='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]; return s; }
