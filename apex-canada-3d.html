@@ -937,9 +937,9 @@ function buildWorld(){
       pos.setY(i,y+Math.sin(i*4.7)*h*0.03); }
     geo.computeVertexNormals();
     const top=h/2,bot=-h/2,col=new Float32Array(nn*3);
-    const rock=new THREE.Color(0x55647a),rockD=new THREE.Color(0x232832),snow=new THREE.Color(0xf6fafe);
+    const rock=new THREE.Color(0x53607a),rockD=new THREE.Color(0x2b313e),snow=new THREE.Color(0xf6fafe);
     for(let i=0;i<nn;i++){ const t=(pos.getY(i)-bot)/(top-bot);
-      const cc=t>0.56?snow.clone().lerp(rock,(1-t)/0.44*0.18):rockD.clone().lerp(rock,Math.pow(t/0.56,0.9));
+      const cc=t>0.74?snow.clone().lerp(rock,(1-t)/0.26*0.12):rockD.clone().lerp(rock,Math.pow(t/0.74,1.15));
       col[i*3]=cc.r; col[i*3+1]=cc.g; col[i*3+2]=cc.b; }
     geo.setAttribute('color',new THREE.BufferAttribute(col,3));
     const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,flatShading:true,roughness:.96,metalness:0}));
