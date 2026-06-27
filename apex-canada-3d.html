@@ -13,6 +13,8 @@
     #brand{top:16px;left:16px;background:linear-gradient(180deg,rgba(9,12,18,.82),rgba(9,12,18,.54));border:1px solid rgba(255,255,255,.12);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;backdrop-filter:blur(8px)}
     #brand h1{font-size:18px;font-weight:900;font-style:italic;letter-spacing:.12em;text-transform:uppercase}
     #brand p{font-size:12px;color:var(--dim);margin-top:3px;letter-spacing:.08em;text-transform:uppercase}
+    #menubtn{position:absolute;z-index:8;top:16px;right:16px;pointer-events:auto;font:800 12px/1 "Avenir Next","Segoe UI",system-ui;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);background:linear-gradient(180deg,rgba(9,12,18,.82),rgba(9,12,18,.54));border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 15px;cursor:pointer;backdrop-filter:blur(8px);transition:all .12s}
+    #menubtn:hover{color:var(--ink);border-color:var(--accent)}
     #modes{top:88px;left:16px;display:flex;gap:5px;pointer-events:auto}
     #tracks{top:124px;left:16px;display:flex;flex-wrap:wrap;gap:5px;max-width:340px;pointer-events:auto}
     #modes button,#tracks button{font:700 11px/1 "Avenir Next","Segoe UI",system-ui;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);background:rgba(9,12,18,.72);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:6px 9px;cursor:pointer;backdrop-filter:blur(8px);transition:all .12s}
@@ -39,12 +41,14 @@
     #gomsg{position:absolute;z-index:6;left:50%;top:46%;transform:translate(-50%,-50%) scale(.6);font-weight:900;font-style:italic;font-size:clamp(64px,13vw,128px);letter-spacing:.04em;color:var(--accent);text-shadow:0 6px 40px rgba(57,210,192,.5);opacity:0;pointer-events:none}
     #gomsg.show{animation:goFx 1s ease forwards}
     @keyframes goFx{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.22)}}
-    #results{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(6,9,14,.8),rgba(6,9,14,.95));backdrop-filter:blur(7px)}
-    #results[hidden]{display:none}
+    #results,#pause{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(6,9,14,.8),rgba(6,9,14,.95));backdrop-filter:blur(7px)}
+    #pause{z-index:11}
+    #results[hidden],#pause[hidden]{display:none}
     .rcard{width:min(450px,90vw);background:linear-gradient(180deg,rgba(20,26,36,.96),rgba(12,16,22,.96));border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--accent);border-radius:14px;padding:30px;text-align:center;box-shadow:0 30px 80px -30px #000}
     .reye{font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);font-weight:800}
     .rpos{font-size:74px;font-weight:900;font-style:italic;line-height:1;margin:4px 0 2px}
     .rsub{font-size:13px;color:var(--dim);margin-bottom:18px}
+    .psub{font-size:15px;color:var(--dim);margin:8px 0 22px;font-weight:600}
     .rstats{display:flex;gap:12px;margin-bottom:16px}
     .rstats>div{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:11px}
     .rstats span{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
@@ -55,6 +59,7 @@
     .split b{font-weight:700}.split em{margin-left:auto;font-style:normal;color:var(--dim);font-size:12px}
     .split.best b,.split.best em{color:var(--accent)}
     .rbtns{display:flex;gap:10px}
+    .rbtns.pcol{flex-direction:column}
     .rbtn{flex:1;font:800 13px/1 "Avenir Next",system-ui;letter-spacing:.08em;text-transform:uppercase;padding:13px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:var(--ink);transition:all .14s}
     .rbtn:hover{border-color:var(--accent);color:var(--accent)}
     .rbtn.primary{background:var(--accent);color:#04201d;border-color:var(--accent)}
@@ -69,6 +74,7 @@
     <h1>Apex Canada 3D</h1>
     <p id="status">Lights out…</p>
   </div>
+  <button id="menubtn">❚❚ Menu</button>
   <div class="hud" id="modes">
     <button data-m="race">Race</button><button data-m="quali">Quali</button><button id="diffbtn" class="diff">AI · Pro</button>
   </div>
@@ -87,7 +93,7 @@
     <div class="row"><span>Lap</span><b><span id="lap">1</span>/<span id="laptot">3</span></b></div>
     <div class="row"><span>View</span><b id="view">CHASE</b></div>
   </div>
-  <div class="hud" id="help">&uarr;/W throttle &middot; &darr;/S brake &middot; &larr;&rarr; steer &middot; <b>Shift boost</b> &middot; V cam &middot; T time &middot; C weather &middot; N music &middot; M mute</div>
+  <div class="hud" id="help">&uarr;/W throttle &middot; &darr;/S brake &middot; &larr;&rarr; steer &middot; <b>Shift boost</b> &middot; V cam &middot; T time &middot; C weather &middot; N music &middot; Esc menu</div>
   <div id="results" hidden>
     <div class="rcard">
       <div class="reye">Chequered Flag</div>
@@ -101,6 +107,17 @@
       <div class="rbtns">
         <button id="btn-again" class="rbtn primary">Race again</button>
         <button id="btn-circuits" class="rbtn">Change circuit</button>
+      </div>
+    </div>
+  </div>
+  <div id="pause" hidden>
+    <div class="rcard">
+      <div class="reye">Paused</div>
+      <div class="psub" id="pause-sub">Apex Canada</div>
+      <div class="rbtns pcol">
+        <button id="pz-resume" class="rbtn primary">Resume</button>
+        <button id="pz-restart" class="rbtn">Restart</button>
+        <button id="pz-quit" class="rbtn">Quit to menu</button>
       </div>
     </div>
   </div>
@@ -706,6 +723,7 @@ function flash(msg){ if(!flashEl)return; flashEl.textContent=msg; flashEl.classL
 buildRain();
 addEventListener('keydown', e => { const k=e.key.toLowerCase(); keys.add(k);
   if(k==='v') cycleView();
+  if(k==='escape') togglePause();
   if(k==='t'){ applyTOD(todIdx+1); applyWX(wxIdx); flash('TIME: '+TODS[todIdx].name); }
   if(k==='c'){ applyWX(wxIdx+1); flash('WEATHER: '+WX[wxIdx]); }
   if(k==='m'){ audioOn=!audioOn; flash(audioOn?'SOUND ON':'MUTED'); }
@@ -715,6 +733,15 @@ addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
 document.querySelectorAll('#tracks [data-t]').forEach(b=>{ if(b.dataset.t===TRACK_ID)b.classList.add('on'); b.addEventListener('click',()=>{ location.hash=b.dataset.t+(MODE==='quali'?'/quali':''); location.reload(); }); });
 document.querySelectorAll('#modes [data-m]').forEach(b=>{ if(b.dataset.m===MODE)b.classList.add('on'); b.addEventListener('click',()=>{ location.hash=TRACK_ID+(b.dataset.m==='quali'?'/quali':''); location.reload(); }); });
 {const db=document.getElementById('diffbtn'); const setD=()=>{ if(db)db.textContent='AI \u00b7 '+DIFFS[diffIdx].n; }; setD(); if(db)db.addEventListener('click',()=>{ diffIdx=(diffIdx+1)%DIFFS.length; setD(); flash('DIFFICULTY \u00b7 '+DIFFS[diffIdx].n); }); }
+const pauseEl=document.getElementById('pause'); let paused=false;
+function setPause(p){ paused=p; if(pauseEl)pauseEl.hidden=!p; if(!p&&typeof music!=='undefined')music.next=0; }
+function togglePause(){ if(race.state==='finished')return; setPause(!paused); }
+{ const mb=document.getElementById('menubtn'), pr=document.getElementById('pz-resume'), prs=document.getElementById('pz-restart'), pq=document.getElementById('pz-quit'), ps=document.getElementById('pause-sub');
+  if(ps)ps.textContent=circuit.name+(MODE==='quali'?' \u00b7 Qualifying':'');
+  if(mb)mb.onclick=()=>togglePause();
+  if(pr)pr.onclick=()=>setPause(false);
+  if(prs)prs.onclick=()=>location.reload();
+  if(pq)pq.onclick=()=>location.href='./index.html'; }
 {const lt=document.getElementById('laptot'); if(lt)lt.textContent=(MODE==='quali')?'2':'3';}
 {const bA=document.getElementById('btn-again'),bC=document.getElementById('btn-circuits');if(bA)bA.onclick=()=>location.reload();if(bC)bC.onclick=()=>location.href='./index.html';}
 addEventListener('resize', resize);
@@ -1231,7 +1258,7 @@ function updateCamera(dt){
 
 function cycleView(){view=view==='CHASE'?'COCKPIT':view==='COCKPIT'?'BUMPER':'CHASE'; viewEl.textContent=view;}
 function resize(){renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();}
-function loop(){const dt=Math.min(clock.getDelta(),.033); updateRace(dt); cars.forEach(c=>updateCar(c,dt)); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
