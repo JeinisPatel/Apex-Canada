@@ -577,11 +577,15 @@ applyTOD(1);   // start in daylight
 function wordmarkTexture(){
   const w=512,h=128,c=document.createElement('canvas');c.width=w;c.height=h;
   const g=c.getContext('2d');g.clearRect(0,0,w,h);
-  g.fillStyle='#39d2c0';g.textAlign='center';g.textBaseline='middle';
-  const txt='ETHICAL AI',fs=Math.floor(h*0.6);g.font='800 '+fs+'px Arial,sans-serif';
+  g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';
+  const txt='ETHICAL AI',fs=Math.floor(h*0.66);g.font='900 '+fs+'px Arial,sans-serif';
   const tr=fs*0.12;let tot=0;for(const ch of txt)tot+=g.measureText(ch).width+tr;
-  let x=(w-tot)/2;for(const ch of txt){const cw=g.measureText(ch).width;g.fillText(ch,x+cw/2,h/2);x+=cw+tr;}
-  const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t;
+  let x=(w-tot)/2;
+  for(const ch of txt){const cw=g.measureText(ch).width;
+    g.lineWidth=fs*0.17;g.strokeStyle='rgba(7,11,16,0.92)';g.strokeText(ch,x+cw/2,h/2);
+    g.fillStyle='#63e8d6';g.fillText(ch,x+cw/2,h/2);
+    x+=cw+tr;}
+  const t=new THREE.CanvasTexture(c);t.anisotropy=8;return t;
 }
 const CREST_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 708 557"><g fill="__FILL__" stroke="none"><path d="M254,484 L252,480 L246,476 L236,477 L228,487 L221,489 L123,489 L116,484 L109,483 L101,487 L98,492 L98,499 L104,507 L112,509 L118,507 L122,503 L230,503 L237,498 L245,499 L252,495 L254,491 Z"/><path d="M697,544 L547,311 L431,126 L429,126 L352,200 L336,201 L275,262 L276,263 L339,220 L346,222 L351,230 L366,264 L367,270 L316,345 L249,410 L148,410 L148,425 L255,425 L317,372 L318,393 L258,444 L145,444 L138,439 L128,440 L122,447 L122,456 L130,464 L138,464 L145,459 L262,459 L317,413 L317,435 L280,469 L280,528 L44,528 L354,48 L361,57 L407,128 L409,128 L423,114 L354,10 L10,545 L295,546 L295,477 L333,441 L335,375 L464,375 L535,458 L617,458 L663,527 L655,529 L527,529 L454,453 L447,451 L441,457 L441,460 L445,466 L505,528 L477,529 L414,464 L415,457 L409,449 L402,447 L394,450 L390,455 L390,466 L396,472 L403,474 L455,528 L374,529 L373,510 L370,504 L366,501 L367,411 L444,411 L518,491 L565,491 L570,496 L577,498 L584,496 L589,491 L590,482 L588,478 L580,472 L571,473 L566,477 L525,477 L450,396 L351,396 L350,500 L344,511 L344,546 L600,546 Z"/><path d="M420,150 L607,440 L607,443 L542,443 L471,359 L336,360 L334,358 L335,348 L388,270 L386,262 L364,214 Z"/></g></svg>';
 function crestTexture(fill){
@@ -900,7 +904,22 @@ function buildWorld(){
     const tr=new THREE.Mesh(new THREE.CylinderGeometry(.55*s,.75*s,3.4*s,6),TRUNK);tr.position.y=1.7*s;tr.castShadow=true;k.add(tr);
     const cr=new THREE.Mesh(new THREE.IcosahedronGeometry(3.4*s,0),OAKC);cr.position.y=5.4*s;cr.scale.y=.85;cr.castShadow=true;k.add(cr);
     k.position.set(wx,0,wz);return k;}
-  function mkPeak(wx,wz,h,r){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,5),ROCK);m.position.set(wx,h/2-2,wz);m.rotation.y=Math.random()*6;m.castShadow=true;return m;}
+  function mkMassif(wx,wz,h,r){
+    const geo=new THREE.ConeGeometry(r,h,9,4); const pos=geo.attributes.position, nn=pos.count;
+    for(let i=0;i<nn;i++){ const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i),rr=Math.hypot(x,z);
+      if(rr>1e-3){ const k=1+Math.sin(i*12.9898)*0.30; pos.setX(i,x*k); pos.setZ(i,z*k); }
+      pos.setY(i,y+Math.sin(i*4.7)*h*0.03); }
+    geo.computeVertexNormals();
+    const top=h/2,bot=-h/2,col=new Float32Array(nn*3);
+    const rock=new THREE.Color(0x5b6b80),rockD=new THREE.Color(0x39414f),snow=new THREE.Color(0xeef3f8);
+    for(let i=0;i<nn;i++){ const t=(pos.getY(i)-bot)/(top-bot);
+      const cc=t>0.62?snow.clone().lerp(rock,(1-t)/0.38*0.25):rockD.clone().lerp(rock,t/0.62);
+      col[i*3]=cc.r; col[i*3+1]=cc.g; col[i*3+2]=cc.b; }
+    geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+    const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,flatShading:true,roughness:.96,metalness:0}));
+    m.position.set(wx,h/2-2,wz); m.rotation.y=Math.random()*6; m.castShadow=true; return m;
+  }
+  function mkPeak(wx,wz,h,r){ return mkMassif(wx,wz,h,r); }
   function mkLabel(text,wx,wz,h){
     const f=36,c=document.createElement('canvas'),x=c.getContext('2d');
     x.font='700 '+f+'px Arial,sans-serif';const tw=x.measureText(text).width;
@@ -1189,9 +1208,9 @@ function buildWorld(){
       const tw=new THREE.Mesh(new THREE.BoxGeometry(w,hh,w),new THREE.MeshStandardMaterial({color:gc[i%6],roughness:.2,metalness:.5,emissive:gc[i%6],emissiveIntensity:.06}));
       tw.position.set(Math.cos(a)*R,hh/2,Math.sin(a)*R);tw.rotation.y=Math.random()*1.5;tw.castShadow=true;g.add(tw);}
   } else {
-    for(let i=0;i<26;i++){const a=i/26*Math.PI*2,R=640+((i*53)%120),hh=70+((i*97)%120);
-      const pk=new THREE.Mesh(new THREE.ConeGeometry(60+((i*37)%50),hh,4),ROCK);
-      pk.position.set(Math.cos(a)*R,hh/2-14,Math.sin(a)*R);pk.rotation.y=Math.random()*6;g.add(pk);}
+    for(let i=0;i<26;i++){const a=i/26*Math.PI*2,R=640+((i*53)%120),hh=70+((i*97)%120),rad=60+((i*37)%50);
+      const M=mkMassif(Math.cos(a)*R,Math.sin(a)*R,hh,rad); M.position.y=hh/2-14; g.add(M);
+      if(i%3===0){const a2=a+0.05,M2=mkMassif(Math.cos(a2)*(R+38),Math.sin(a2)*(R+38),hh*0.66,rad*0.78); M2.position.y=hh*0.33-14; g.add(M2);}}
   }
   return g;
 }
@@ -1230,10 +1249,10 @@ function createCar(primary,secondary,isPlayer){
   add(B(.09,.09,.8,carbonD),0,1.2,1.15);                       // front spar
   // driver — helmet group that looks into the corners
   const driver=new THREE.Group(); driver.position.set(0,1.04,.5);
-  const helmMat=isPlayer?new THREE.MeshStandardMaterial({color:0xeceef1,roughness:.35}):new THREE.MeshStandardMaterial({color:secondary,roughness:.42});
+  const helmMat=isPlayer?new THREE.MeshStandardMaterial({color:0xe23a36,roughness:.34,metalness:.05}):new THREE.MeshStandardMaterial({color:secondary,roughness:.42});
   const helm=new THREE.Mesh(new THREE.SphereGeometry(.29,18,14),helmMat); helm.castShadow=true; driver.add(helm);
   const visor=new THREE.Mesh(new THREE.BoxGeometry(.30,.13,.10),new THREE.MeshStandardMaterial({color:0x0a0e15,metalness:.6,roughness:.15,emissive:0x0a1822,emissiveIntensity:.25})); visor.position.set(0,.015,.25); driver.add(visor);
-  if(isPlayer){ const stripe=new THREE.Mesh(new THREE.BoxGeometry(.07,.30,.20),new THREE.MeshStandardMaterial({color:primary,roughness:.4})); stripe.position.set(0,.13,0); driver.add(stripe); }
+  if(isPlayer){ const stripe=new THREE.Mesh(new THREE.BoxGeometry(.09,.31,.21),new THREE.MeshStandardMaterial({color:0xeef2f6,roughness:.4})); stripe.position.set(0,.13,0); driver.add(stripe); }
   const shoulders=new THREE.Mesh(new THREE.BoxGeometry(.6,.28,.5),carbonD); shoulders.position.set(0,-.34,-.06); shoulders.castShadow=true; driver.add(shoulders);
   g.add(driver);
   // front wing
@@ -1271,10 +1290,10 @@ function createCar(primary,secondary,isPlayer){
     decal(TCREST_LIGHT,.8,.63, 0,1.34,-1.9, 0,-Math.PI/2);     // engine-cover top (chase-visible)
     decal(TCREST_LIGHT,.62,.49, 1.40,1.5,-4.2, Math.PI/2);     // rear endplate R
     decal(TCREST_LIGHT,.62,.49,-1.40,1.5,-4.2,-Math.PI/2);     // rear endplate L
-    decal(TWORD,2.6,.55, 1.56,.66,-.3, Math.PI/2);             // sidepod R
-    decal(TWORD,2.6,.55,-1.56,.66,-.3,-Math.PI/2);             // sidepod L
-    decal(TWORD,2.8,.5, 0,.35,4.9, 0,-Math.PI/2);              // front wing top
-    decal(TWORD,2.4,.22, 0,1.62,-4.66, Math.PI);               // rear wing (reads correctly from behind)
+    decal(TWORD,2.95,.60, 1.55,.67,-.3, Math.PI/2);            // sidepod R
+    decal(TWORD,2.95,.60,-1.55,.67,-.3,-Math.PI/2);            // sidepod L
+    decal(TWORD,3.0,.54, 0,.35,4.9, 0,-Math.PI/2);             // front wing top
+    decal(TWORD,2.7,.30, 0,1.62,-4.66, Math.PI);               // rear wing (reads correctly from behind)
     const glow=new THREE.PointLight(primary,.6,16); glow.position.set(0,1.4,-2.6); g.add(glow);
   }
   // F1 rear rain light + exhaust backfire
