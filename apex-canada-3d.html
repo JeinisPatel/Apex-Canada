@@ -268,6 +268,13 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07111f);
 scene.fog = new THREE.FogExp2(0x07111f, 0.0085);
 const camera = new THREE.PerspectiveCamera(64, 1, 0.1, 2200);
+// gradient sky dome — zenith/horizon track the active time-of-day + weather palette
+const skyMat=new THREE.ShaderMaterial({
+  uniforms:{ top:{value:new THREE.Color(0x6f9ed0)}, bot:{value:new THREE.Color(0xc3d6ea)}, exph:{value:0.6} },
+  vertexShader:'varying vec3 vP; void main(){ vP=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader:'uniform vec3 top; uniform vec3 bot; uniform float exph; varying vec3 vP; void main(){ float h=max(vP.y,0.0); gl_FragColor=vec4(mix(bot,top,pow(h,exph)),1.0); }',
+  side:THREE.BackSide, depthWrite:false, fog:false });
+const skyDome=new THREE.Mesh(new THREE.SphereGeometry(2050,24,16), skyMat); scene.add(skyDome);
 const hemi = new THREE.HemisphereLight(0xbcd0ea, 0x20262e, 1.05); scene.add(hemi);
 const lightningLight = new THREE.HemisphereLight(0xcfe0ff, 0x8090a0, 0); scene.add(lightningLight);
 const sun = new THREE.DirectionalLight(0xfff1d0, 2.3);
@@ -680,6 +687,22 @@ const track = buildTrack();
 scene.add(track);
 const ANIM=[];   // per-frame updaters for orcas, seaplanes, etc.
 const worldGroup = buildWorld(); scene.add(worldGroup);
+// drifting cloud sprites + sky-dome follow & recolour
+(function(){
+  const cv=document.createElement('canvas'); cv.width=cv.height=128; const cx=cv.getContext('2d');
+  for(let i=0;i<7;i++){ const bx=64+(Math.random()-0.5)*60, by=64+(Math.random()-0.5)*36, rr=20+Math.random()*30;
+    const gr=cx.createRadialGradient(bx,by,0,bx,by,rr); gr.addColorStop(0,'rgba(255,255,255,0.85)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+    cx.fillStyle=gr; cx.beginPath(); cx.arc(bx,by,rr,0,7); cx.fill(); }
+  const ctex=new THREE.CanvasTexture(cv);
+  for(let i=0;i<13;i++){
+    const m=new THREE.SpriteMaterial({map:ctex,transparent:true,opacity:0.5+Math.random()*0.32,depthWrite:false,fog:false});
+    const s=new THREE.Sprite(m); const sc=320+Math.random()*420; s.scale.set(sc,sc*0.5,1);
+    const ang=Math.random()*6.283, rad=400+Math.random()*1000;
+    s.position.set(Math.cos(ang)*rad, 300+Math.random()*280, Math.sin(ang)*rad);
+    scene.add(s); const drift=6+Math.random()*9;
+    ANIM.push((t,dt)=>{ s.position.x+=drift*dt; if(s.position.x>1700) s.position.x-=3400; }); }
+  ANIM.push(()=>{ skyDome.position.copy(camera.position); skyMat.uniforms.top.value.copy(scene.background).multiplyScalar(0.86); skyMat.uniforms.bot.value.copy(scene.fog.color); });
+})();
 
 /* ---------- time of day: T cycles Dawn -> Day -> Dusk -> Night ---------- */
 const TODS=[
