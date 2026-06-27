@@ -93,6 +93,23 @@
   .diff.pit{margin-left:6px}
   .diff.pit.armed{background:rgba(232,58,54,.92);color:#fff;border-color:rgba(232,58,54,.92);box-shadow:0 0 16px -3px rgba(232,58,54,.8)}
   .tc-aux.armed{border-color:rgba(232,58,54,.8);color:#ff8a7a;background:rgba(232,58,54,.2);box-shadow:0 0 18px -4px rgba(232,58,54,.72)}
+  .tc-auxrow{display:flex;gap:10px;align-items:flex-end}
+  @media (orientation:portrait){
+    #tc-steer{gap:12px;left:calc(env(safe-area-inset-left,0px) + 12px)}
+    #tc-drive{gap:10px;right:calc(env(safe-area-inset-right,0px) + 12px)}
+    .tc-pedals{gap:12px}
+    .tc-dir{width:70px;height:70px;border-radius:20px;font-size:25px}
+    .tc-gas{width:86px;height:86px;font-size:16px}
+    .tc-brake{width:70px;height:70px;font-size:13px}
+    .tc-boost{width:104px;height:42px;font-size:12px}
+    .tc-aux{width:74px;height:38px;font-size:11px}
+  }
+  @media (orientation:landscape) and (max-height:440px){
+    #tc-steer,#tc-drive{bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
+  }
+  body.touch #dash{left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);min-width:0;text-align:center}
+  body.touch #standings{top:50%;bottom:auto;right:auto;left:calc(env(safe-area-inset-left,0px) + 12px);transform:translateY(-50%);width:166px}
+  body.touch #menubtn{padding:8px 11px;font-size:11px}
   #standings{position:absolute;z-index:6;top:128px;right:14px;width:190px;background:rgba(10,13,18,.62);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:9px 11px;backdrop-filter:blur(8px);font-family:'Saira',system-ui,sans-serif}
   #standings .st-h{font-size:10px;letter-spacing:.22em;color:#8b95a3;font-weight:800;margin-bottom:6px}
   .st-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;color:#e7edf2}
@@ -188,8 +205,10 @@
       <button class="tc tc-dir" id="tc-right">&#9654;</button>
     </div>
     <div id="tc-drive">
-      <button class="tc tc-aux" id="tc-cam">CAM</button>
-      <button class="tc tc-aux" id="tc-pit">PIT</button>
+      <div class="tc-auxrow">
+        <button class="tc tc-aux" id="tc-cam">CAM</button>
+        <button class="tc tc-aux" id="tc-pit">PIT</button>
+      </div>
       <button class="tc tc-boost" id="tc-boost">BOOST</button>
       <div class="tc-pedals">
         <button class="tc tc-brake" id="tc-brake">BRAKE</button>
