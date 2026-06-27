@@ -122,6 +122,9 @@
   .mp-wait{margin-top:16px;text-align:center;color:#8b95a3;font-size:13px}
   .mp-leave{margin-top:10px;width:100%;background:transparent;color:#8b95a3;border-color:rgba(255,255,255,.14);padding:9px}
   .diff.online{margin-left:6px;border-color:rgba(57,210,192,.5);color:var(--accent,#39d2c0)}
+  .mp-steps{margin:14px 0 4px;padding-left:20px;color:#c3ccd6;font-size:13px;line-height:1.55}
+  .mp-steps li{margin-bottom:5px}.mp-steps b{color:#fff}
+  .mp-listlabel{margin-top:14px;font-size:10px;letter-spacing:.2em;color:#8b95a3;font-weight:800;text-transform:uppercase}
   </style>
 </head>
 <body>
@@ -200,7 +203,12 @@
       <div class="mp-h">RACE ONLINE</div>
       <div class="mp-room">ROOM <b id="mp-code">----</b><span id="mp-status" class="mp-status">connecting</span></div>
       <div class="mp-share"><input id="mp-link" readonly value=""><button id="mp-copy">Copy</button></div>
-      <div class="mp-sub">Share the link or room code &mdash; friends open it on their phone to join this race.</div>
+      <ol class="mp-steps">
+        <li>Send the room link to a friend &mdash; text, WhatsApp, anything.</li>
+        <li>They tap it on their phone (no app, no sign-up) and show up here.</li>
+        <li>When everyone&rsquo;s in, the host taps <b>Start Race</b> &mdash; you all go together.</li>
+      </ol>
+      <div class="mp-listlabel">In this room</div>
       <div id="mp-players" class="mp-list"></div>
       <button id="mp-start" class="mp-go">START RACE</button>
       <div id="mp-wait" class="mp-wait">Waiting for the host to start&hellip;</div>
