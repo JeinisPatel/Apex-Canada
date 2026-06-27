@@ -318,7 +318,7 @@ function elevAt(t){ return CLIMB*(0.5-0.5*Math.cos(2*Math.PI*t)) + ROLL*Math.sin
 function roadY(t){ return .35*Math.sin(t*Math.PI*12) + elevAt(t); }
 function gradeAt(t){ const d=0.004; return elevAt((t+d)%1) - elevAt((t-d+1)%1); }                 // rise over ~0.008 lap (for car pitch)
 const GROUND_Y=-0.42;
-function skirtW(t){ return Math.min(Math.max(roadY(t)*1.25+9, 9), 240); }                          // wider apron where the road is higher
+function skirtW(t){ return Math.min(Math.max(roadY(t)*0.45+7, 7), 18); }                            // capped apron: never wide enough to fold over the road on tight elevated curves
 function slopeY(t,off){ const e=roadY(t), w=skirtW(t), k=Math.min(Math.max((off-ROAD_W/2)/w,0),1); return e+(GROUND_Y-e)*k; }
 
 /* ---------- real water + landmark data (verbatim from v56 career build) ---------- */
