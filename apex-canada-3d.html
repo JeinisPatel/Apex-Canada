@@ -72,6 +72,22 @@
     pointer-events:none;opacity:0;transition:opacity .15s,transform .15s,box-shadow .15s;backdrop-filter:blur(6px)}
   #drs.on{opacity:1;transform:translateX(-50%) translateY(0);background:rgba(57,210,192,.18);
     box-shadow:0 0 24px -4px rgba(57,210,192,.75)}
+  #touch{position:fixed;inset:0;z-index:7;pointer-events:none;display:none;-webkit-user-select:none;user-select:none}
+  body.touch #touch{display:block}
+  body.touch #help{display:none}
+  #tc-steer{position:absolute;left:calc(env(safe-area-inset-left,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;gap:14px}
+  #tc-drive{position:absolute;right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+  .tc-pedals{display:flex;gap:14px;align-items:flex-end}
+  .tc{pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;border:1.5px solid rgba(255,255,255,.22);background:rgba(10,13,18,.42);color:#eaf2f0;font:800 13px/1 'Saira',system-ui,sans-serif;letter-spacing:.08em;backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .05s,background .1s,box-shadow .1s}
+  .tc.held{transform:scale(.94)}
+  .tc-dir{width:80px;height:80px;border-radius:22px;font-size:28px}
+  .tc-gas{width:98px;height:98px;border-radius:50%;font-size:18px;border-color:rgba(57,210,192,.5);color:#39d2c0;background:rgba(57,210,192,.12)}
+  .tc-gas.held{background:rgba(57,210,192,.30);box-shadow:0 0 26px -4px rgba(57,210,192,.7)}
+  .tc-brake{width:80px;height:80px;border-radius:50%;font-size:15px;border-color:rgba(231,76,60,.5);color:#ff8a7a;background:rgba(231,76,60,.12)}
+  .tc-brake.held{background:rgba(231,76,60,.30);box-shadow:0 0 22px -4px rgba(231,76,60,.7)}
+  .tc-boost{width:128px;height:46px;border-radius:999px;font-size:13px;letter-spacing:.18em;border-color:rgba(240,200,96,.55);color:#f0c860;background:rgba(240,200,96,.1)}
+  .tc-boost.held{background:rgba(240,200,96,.28);box-shadow:0 0 22px -4px rgba(240,200,96,.7)}
+  .tc-aux{width:84px;height:40px;border-radius:999px;font-size:12px;letter-spacing:.16em;align-self:flex-end}
   </style>
 </head>
 <body>
@@ -125,6 +141,20 @@
         <button id="pz-resume" class="rbtn primary">Resume</button>
         <button id="pz-restart" class="rbtn">Restart</button>
         <button id="pz-quit" class="rbtn">Quit to menu</button>
+      </div>
+    </div>
+  </div>
+  <div id="touch" aria-hidden="true">
+    <div id="tc-steer">
+      <button class="tc tc-dir" id="tc-left">&#9664;</button>
+      <button class="tc tc-dir" id="tc-right">&#9654;</button>
+    </div>
+    <div id="tc-drive">
+      <button class="tc tc-aux" id="tc-cam">CAM</button>
+      <button class="tc tc-boost" id="tc-boost">BOOST</button>
+      <div class="tc-pedals">
+        <button class="tc tc-brake" id="tc-brake">BRAKE</button>
+        <button class="tc tc-gas" id="tc-gas">GAS</button>
       </div>
     </div>
   </div>
@@ -737,6 +767,26 @@ addEventListener('keydown', e => { const k=e.key.toLowerCase(); keys.add(k);
   if(k==='n'){ if(!music.on){music.on=true;trackIdx=0;flash('MUSIC: '+TRACKS[0].n);} else {trackIdx++; if(trackIdx>=TRACKS.length){trackIdx=0;music.on=false;flash('MUSIC OFF');} else flash('MUSIC: '+TRACKS[trackIdx].n);} music.next=0; }
   initAudio(); if(actx&&actx.state==='suspended') actx.resume(); });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+
+/* ---- on-screen touch controls (iOS / Android) ---- */
+(function(){
+  const TOUCH = matchMedia('(pointer:coarse)').matches || (navigator.maxTouchPoints>0 && innerWidth<=1024);
+  if(TOUCH) document.body.classList.add('touch');
+  const press=(el,key)=>{ if(!el)return;
+    const on=e=>{ e.preventDefault(); keys.add(key); el.classList.add('held'); initAudio(); if(actx&&actx.state==='suspended')actx.resume(); };
+    const off=e=>{ e.preventDefault(); keys.delete(key); el.classList.remove('held'); };
+    el.addEventListener('pointerdown',on); el.addEventListener('pointerup',off);
+    el.addEventListener('pointercancel',off); el.addEventListener('pointerleave',off);
+    el.addEventListener('contextmenu',e=>e.preventDefault());
+  };
+  press(document.getElementById('tc-left'),'arrowleft');
+  press(document.getElementById('tc-right'),'arrowright');
+  press(document.getElementById('tc-gas'),'arrowup');
+  press(document.getElementById('tc-brake'),'arrowdown');
+  press(document.getElementById('tc-boost'),'shift');
+  const cam=document.getElementById('tc-cam');
+  if(cam){ cam.addEventListener('pointerdown',e=>{e.preventDefault(); cycleView();}); cam.addEventListener('contextmenu',e=>e.preventDefault()); }
+})();
 document.querySelectorAll('#tracks [data-t]').forEach(b=>{ if(b.dataset.t===TRACK_ID)b.classList.add('on'); b.addEventListener('click',()=>{ location.hash=b.dataset.t+(MODE==='quali'?'/quali':''); location.reload(); }); });
 document.querySelectorAll('#modes [data-m]').forEach(b=>{ if(b.dataset.m===MODE)b.classList.add('on'); b.addEventListener('click',()=>{ location.hash=TRACK_ID+(b.dataset.m==='quali'?'/quali':''); location.reload(); }); });
 {const db=document.getElementById('diffbtn'); const setD=()=>{ if(db)db.textContent='AI \u00b7 '+DIFFS[diffIdx].n; }; setD(); if(db)db.addEventListener('click',()=>{ diffIdx=(diffIdx+1)%DIFFS.length; setD(); flash('DIFFICULTY \u00b7 '+DIFFS[diffIdx].n); }); }
