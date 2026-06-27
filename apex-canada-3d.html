@@ -625,13 +625,13 @@ const RIVALS=[[0xe8443a,0x6a1a14,.965],[0x3a7fe8,0x10316e,.975],[0xf0c860,0x7a54
 const WEAR_RATE=0.14, PIT_TIME=4.2;
 const PLAYER_SLOT=3, slotProg=s=>0.046-s*0.0072, slotLat=s=>((s%2)?1:-1)*ROAD_W*0.22;
 if(MODE==='quali'){
-  Object.assign(player,{progress:0.02,speed:0,maxSpeed:120,lap:1,lateral:0,steer:0,last:0.02,total:0,gridPos:0,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false});
+  Object.assign(player,{progress:0.02,speed:0,maxSpeed:120,lap:1,lateral:0,steer:0,last:0.02,total:0,gridPos:0,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false,damage:0,dmgMul:1,onFire:false,shake:0});
 }else{
   let _ri=0;
   for(let s=0;s<6;s++){
-    if(s===PLAYER_SLOT){ Object.assign(player,{progress:slotProg(s),speed:0,maxSpeed:120,lap:1,lateral:slotLat(s),steer:0,last:slotProg(s),total:0,gridPos:s,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false}); }
+    if(s===PLAYER_SLOT){ Object.assign(player,{progress:slotProg(s),speed:0,maxSpeed:120,lap:1,lateral:slotLat(s),steer:0,last:slotProg(s),total:0,gridPos:s,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false,damage:0,dmgMul:1,onFire:false,shake:0}); }
     else{ const[a,b,pace]=RIVALS[_ri++]; const r=createCar(a,b,false);
-      Object.assign(r,{progress:slotProg(s),speed:0,maxSpeed:113,pace,lap:1,lateral:slotLat(s),steer:0,last:slotProg(s),total:0,gridPos:s,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false});
+      Object.assign(r,{progress:slotProg(s),speed:0,maxSpeed:113,pace,lap:1,lateral:slotLat(s),steer:0,last:slotProg(s),total:0,gridPos:s,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false,damage:0,dmgMul:1,onFire:false,shake:0});
       scene.add(r.mesh); cars.push(r); }
   }
 }
@@ -1354,26 +1354,33 @@ function createCar(primary,secondary,isPlayer){
   add(B(.32,.34,.12,rainMat),0,.95,-4.55);
   const flame=new THREE.Mesh(new THREE.ConeGeometry(.2,1.2,8),new THREE.MeshBasicMaterial({color:0xff7a1a}));
   flame.rotation.x=-Math.PI/2; flame.position.set(0,.72,-4.75); flame.visible=false; g.add(flame);
-  return {mesh:g,isPlayer,rainMat,flame,helmet:driver,drs,drsT:0,drsActive:false};
+  // crash damage: smoke wisp when damaged, full fire on Ace
+  const fireGroup=new THREE.Group(); fireGroup.position.set(0,1.0,-1.3); fireGroup.visible=false;
+  const fcol=[0xffd23a,0xff8a1a,0xff4a14], flames=[];
+  for(let i=0;i<6;i++){ const fm=new THREE.Mesh(new THREE.ConeGeometry(.26+Math.random()*.2,1.0+Math.random()*.7,7),new THREE.MeshBasicMaterial({color:fcol[i%3],transparent:true,opacity:.85,depthWrite:false}));
+    fm.position.set((Math.random()-.5)*.9,.4+Math.random()*.5,(Math.random()-.5)*1.4); fm.visible=false; fireGroup.add(fm); flames.push(fm); }
+  const smoke=new THREE.Mesh(new THREE.SphereGeometry(.7,7,6),new THREE.MeshBasicMaterial({color:0x2b2b30,transparent:true,opacity:.5,depthWrite:false}));
+  smoke.position.set(0,1.9,.1); fireGroup.add(smoke); g.add(fireGroup);
+  return {mesh:g,isPlayer,rainMat,flame,helmet:driver,drs,drsT:0,drsActive:false,fireGroup,flames,smoke};
 }
 
 function updateCar(car,dt){
   const _pitting = race.state==='racing' && car.pitT>0;
-  if(_pitting){ car.pitT-=dt; if(car.pitT<=0){ car.tyre=1; car.pitStops=(car.pitStops||0)+1; car.pitCool=6; if(car.isPlayer){flash('TYRES FITTED'); if(typeof setPitBtn==='function')setPitBtn();} } }
+  if(_pitting){ car.pitT-=dt; if(car.pitT<=0){ car.tyre=1; car.damage=0; car.dmgMul=1; car.onFire=false; car.pitStops=(car.pitStops||0)+1; car.pitCool=6; if(car.isPlayer){flash('TYRES FITTED \u2014 REPAIRED'); if(typeof setPitBtn==='function')setPitBtn();} } }
   if(car.isPlayer){
     const racing=race.state==='racing';
     const throttle=racing&&!_pitting&&(keys.has('arrowup')||keys.has('w')), brake=racing&&!_pitting&&(keys.has('arrowdown')||keys.has('s')), left=racing&&!_pitting&&(keys.has('arrowleft')||keys.has('a')), right=racing&&!_pitting&&(keys.has('arrowright')||keys.has('d')), boost=racing&&!_pitting&&keys.has('shift');
-    if(throttle)car.speed+=(boost?46:32)*dt; else car.speed-=11*dt; if(brake)car.speed-=44*dt; if(_pitting)car.speed-=36*dt;
+    if(throttle)car.speed+=(boost?46:32)*dt*(car.dmgMul||1); else car.speed-=11*dt; if(brake)car.speed-=44*dt; if(_pitting)car.speed-=36*dt;
     const HALF=ROAD_W/2, WALL=HALF+4.5, onGrass=Math.abs(car.lateral)>HALF;
     if(onGrass)car.speed-=26*dt;                                   // grass scrubs your speed
-    car.speed=THREE.MathUtils.clamp(car.speed,0,boost?car.maxSpeed*1.13:car.maxSpeed);
+    car.speed=THREE.MathUtils.clamp(car.speed,0,(boost?car.maxSpeed*1.13:car.maxSpeed)*(car.dmgMul||1));
     car.steer=THREE.MathUtils.lerp(car.steer,(left?-1:0)+(right?1:0),1-Math.pow(.0016,dt));
     const grip=(onGrass?.4:1)*(0.62+0.38*car.tyre);               // grip falls away as tyres wear
     const t0=curve.getTangentAt(car.progress).normalize(), t1=curve.getTangentAt((car.progress+.006)%1).normalize();
     const drift=-(t0.x*t1.z-t0.z*t1.x);                            // centrifugal — fast corners run you wide
     car.lateral+=car.steer*dt*(13+car.speed*.085)*grip + drift*car.speed*.7*dt;
     car.lateral*=Math.pow(.82,dt);                                 // gentle self-centre; hold your own line
-    if(Math.abs(car.lateral)>WALL){car.lateral=Math.sign(car.lateral)*WALL; car.speed*=.35; car.steer*=-.25;}  // barrier hit
+    if(Math.abs(car.lateral)>WALL){ car.lateral=Math.sign(car.lateral)*WALL; car.steer*=-.25; if(racing&&car.speed>car.maxSpeed*0.5)crashCar(car); else car.speed*=.55; }  // barrier scrape / crash
     if(_pitting){ car.lateral=THREE.MathUtils.lerp(car.lateral,WALL*0.72,1-Math.pow(.05,dt)); }
     else { const working=Math.abs(car.steer)*0.9+(throttle?0.45:0)+(boost?0.4:0)+(brake?0.3:0); const _pd=(car.speed*dt)/LAPDIV; car.tyre=Math.max(0.18,car.tyre-WEAR_RATE*_pd*(0.6+working)); }
     car.rainMat.emissiveIntensity = brake?2.8:1.1;                 // brake brightens the rain light
@@ -1393,14 +1400,21 @@ function updateCar(car,dt){
     const drsOpen = race.state==='racing' && car.speed>car.maxSpeed*0.7 && Math.abs(turn)<0.05 && !braking; car.drsActive=drsOpen;
     if(car.drs){ car.drsT=THREE.MathUtils.lerp(car.drsT||0, drsOpen?1:0, 1-Math.pow(0.0006,dt)); car.drs.rotation.x=THREE.MathUtils.lerp(-0.5,0.18,car.drsT); }
     if(car.helmet){ const look=car.isPlayer? -car.steer*0.45 : THREE.MathUtils.clamp(-turn*7,-0.4,0.4); car.helmet.rotation.y=THREE.MathUtils.lerp(car.helmet.rotation.y, look, 1-Math.pow(0.003,dt)); } }
+  if(car.fireGroup){ const dmg=(car.damage||0)>0; car.fireGroup.visible=dmg||!!car.onFire; const tt=performance.now()*0.012;
+    for(let i=0;i<car.flames.length;i++){ const f=car.flames[i]; f.visible=!!car.onFire; if(car.onFire){ const sc=0.7+Math.abs(Math.sin(tt+i*1.7))*0.85; f.scale.set(sc*0.9,sc*1.35,sc*0.9); f.material.opacity=0.55+Math.abs(Math.sin(tt*1.3+i))*0.4; } }
+    if(car.smoke){ car.smoke.visible=dmg||!!car.onFire; car.smoke.position.y=1.8+Math.sin(tt*0.5)*0.18; car.smoke.material.opacity=(car.onFire?0.5:0.3)+Math.abs(Math.sin(tt*0.4))*0.18; car.smoke.scale.setScalar(car.onFire?1.25:0.85); } }
 }
 
+function crashCar(car){
+  car.speed*=0.26; car.damage=(car.damage||0)+1; car.dmgMul=Math.max(0.75,(car.dmgMul||1)-0.05); car.steer*=-0.4;
+  if(car.isPlayer){ car.shake=0.5; flash(diffIdx===2?'CRASH \u2014 ENGINE ABLAZE':'CRASH \u2014 CAR DAMAGED'); if(diffIdx===2)car.onFire=true; }
+}
 function updateCamera(dt){
   const p=player.mesh.position, f=curve.getTangentAt(player.progress).normalize(), r=new THREE.Vector3(f.z,0,-f.x).normalize(); let desired, look;
   if(view==='COCKPIT'){desired=p.clone().addScaledVector(f,3.8).add(new THREE.Vector3(0,2.25,0)); look=p.clone().addScaledVector(f,55).add(new THREE.Vector3(0,2.1,0));}
   else if(view==='BUMPER'){desired=p.clone().addScaledVector(f,6.5).add(new THREE.Vector3(0,.95,0)); look=p.clone().addScaledVector(f,70).add(new THREE.Vector3(0,1.15,0));}
   else{desired=p.clone().addScaledVector(f,-23).addScaledVector(r,-player.steer*2).add(new THREE.Vector3(0,10.5,0)); look=p.clone().addScaledVector(f,36).add(new THREE.Vector3(0,3.2,0));}
-  const s=1-Math.pow(.0007,dt); camPos.lerp(desired,s); camTarget.lerp(look,s); camera.position.copy(camPos); camera.lookAt(camTarget); camera.fov=THREE.MathUtils.lerp(camera.fov,view==='CHASE'?62+player.speed*.06:70+player.speed*.035,.05); camera.updateProjectionMatrix();
+  const s=1-Math.pow(.0007,dt); camPos.lerp(desired,s); camTarget.lerp(look,s); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.lookAt(camTarget); camera.fov=THREE.MathUtils.lerp(camera.fov,view==='CHASE'?62+player.speed*.06:70+player.speed*.035,.05); camera.updateProjectionMatrix();
 }
 
 function cycleView(){view=view==='CHASE'?'COCKPIT':view==='COCKPIT'?'BUMPER':'CHASE'; viewEl.textContent=view;}
