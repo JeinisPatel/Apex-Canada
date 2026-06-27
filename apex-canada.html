@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Canada · Career</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:ital,wght@0,400;0,500;0,600;1,600&family=Saira+Condensed:wght@600;700;800&family=Saira+Semi+Condensed:ital,wght@1,800;1,900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --carbon:#06080d; --slate:#0f141d; --slate2:#151c28; --line:#202a39;
+  --ink:#eef2f8; --dim:#838d9f; --faint:#5a6373;
+  --teal:#e23a36; --teal-dk:#9a201d; --amber:#f0c860; --red:#e2574b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--carbon);color:var(--ink);font-family:"Saira",system-ui,sans-serif;
+  font-weight:400;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.mono{font-family:"Space Mono",ui-monospace,monospace}
+.eyebrow{font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.32em;
+  text-transform:uppercase;color:var(--teal)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+/* ---- top bar ---- */
+.bar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;
+  justify-content:space-between;padding:14px 28px;
+  background:linear-gradient(180deg,rgba(6,8,13,.92),rgba(6,8,13,.0));
+  backdrop-filter:blur(6px)}
+.bar .mk{font-family:"Saira Semi Condensed";font-style:italic;font-weight:900;
+  font-size:19px;letter-spacing:.04em;text-transform:uppercase}
+.bar .mk em{color:var(--teal);font-style:italic}
+.bar .nav{display:flex;align-items:center;gap:22px}
+.bar .nav a.lnk{font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--dim)}
+.bar .nav a.lnk:hover{color:var(--ink)}
+.cta{display:inline-flex;align-items:center;gap:9px;font-family:"Saira Condensed";
+  font-weight:800;font-size:14px;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--teal);color:#2a0606;padding:10px 18px;border-radius:7px;
+  border:1px solid var(--teal);transition:transform .14s, box-shadow .14s, background .14s}
+.cta:hover{transform:translateY(-2px);box-shadow:0 10px 30px -8px rgba(226,58,54,.5)}
+.cta:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.cta .dot{width:7px;height:7px;border-radius:50%;background:#2a0606;
+  box-shadow:0 0 0 0 rgba(40,6,6,.6);animation:pulse 2.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(40,6,6,.55)}70%{box-shadow:0 0 0 7px rgba(40,6,6,0)}100%{box-shadow:0 0 0 0 rgba(40,6,6,0)}}
+
+/* ---- hero ---- */
+.hero{position:relative;min-height:100vh;display:grid;grid-template-columns:1.05fr .95fr;
+  align-items:center;gap:40px;padding:120px 0 70px}
+.hero::before{content:"";position:absolute;right:-6%;top:38%;width:60vw;height:60vw;
+  max-width:760px;max-height:760px;transform:translateY(-50%);
+  background:radial-gradient(circle,rgba(226,58,54,.12),transparent 62%);pointer-events:none;z-index:0}
+.hero-l{position:relative;z-index:2}
+.maple{position:absolute;z-index:0;top:50%;right:-7%;transform:translateY(-50%);
+  width:min(60vw,600px);height:auto;color:#dfe6f0;opacity:.055;pointer-events:none}
+@media(max-width:880px){.maple{right:-22%;top:58%;width:92vw;opacity:.05}}
+.hero-sub{margin-top:18px}
+.wordmark{font-family:"Saira Semi Condensed";font-style:italic;font-weight:900;
+  line-height:.84;letter-spacing:-.01em;text-transform:uppercase;
+  font-size:clamp(58px,11.5vw,158px);margin-top:14px}
+.wordmark em{display:block;color:var(--teal);font-style:italic}
+.lede{margin-top:24px;max-width:30em;font-size:clamp(16px,1.5vw,19px);color:#c4cbd8}
+.lede b{color:var(--ink);font-weight:600}
+.hero-cta{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:30px}
+.ghost.online{border-color:rgba(57,210,192,.55);color:#39d2c0}
+.odot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#39d2c0;margin-right:9px;vertical-align:middle;box-shadow:0 0 10px #39d2c0;animation:opulse 1.4s ease-in-out infinite}
+@keyframes opulse{0%,100%{opacity:1}50%{opacity:.35}}
+.ghost{font-family:"Saira Condensed";font-weight:700;font-size:14px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink);padding:10px 16px;border-radius:7px;
+  border:1px solid var(--line);transition:border-color .14s,color .14s}
+.ghost:hover{border-color:var(--teal);color:var(--teal)}
+.byline{margin-top:34px;font-family:"Space Mono",monospace;font-size:13px;color:var(--dim);
+  letter-spacing:.02em;border-left:2px solid var(--amber);padding-left:14px}
+.byline b{color:#cfd6e2;font-weight:400}
+
+/* hero circuit */
+.hero-r{position:relative;z-index:1;aspect-ratio:1/1;width:100%}
+.hero-r svg{width:100%;height:100%;overflow:visible}
+.hero-tel{position:absolute;font-family:"Space Mono",monospace;font-size:11px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.hero-tel.tl{top:4%;left:2%} .hero-tel.tr{top:4%;right:2%;text-align:right}
+.hero-tel.bl{bottom:3%;left:2%} .hero-tel.bl b{color:var(--teal);font-weight:400}
+.scroll-hint{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);
+  font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.3em;color:var(--faint);
+  text-transform:uppercase;z-index:2}
+
+/* ---- section frame ---- */
+.sect{padding:84px 0 10px;position:relative}
+.sect-head{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:38px}
+.sect-head h2{font-family:"Saira Condensed";font-weight:800;font-size:clamp(28px,4vw,46px);
+  letter-spacing:.01em;text-transform:uppercase;line-height:1}
+.sect-head .cnt{font-family:"Space Mono",monospace;font-size:13px;color:var(--dim);
+  letter-spacing:.16em;margin-left:auto}
+
+/* ---- calendar / cards ---- */
+.city-row{display:flex;align-items:center;gap:14px;margin:42px 0 20px}
+.city-row:first-of-type{margin-top:0}
+.city-row .tick{width:26px;height:2px;background:var(--teal)}
+.city-row h3{font-family:"Space Mono",monospace;font-size:13px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--ink)}
+.city-row .n{font-family:"Space Mono",monospace;font-size:12px;color:var(--faint);letter-spacing:.14em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+.card{position:relative;background:linear-gradient(180deg,var(--slate2),var(--slate));
+  border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px;
+  display:flex;flex-direction:column;transition:border-color .18s,transform .18s,box-shadow .18s}
+.card:hover{border-color:var(--teal);transform:translateY(-3px);
+  box-shadow:0 18px 40px -22px rgba(226,58,54,.55)}
+.card:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.card .map{aspect-ratio:16/11;width:100%;background:radial-gradient(circle at 50% 45%,rgba(226,58,54,.05),transparent 70%);
+  border-radius:8px;margin-bottom:14px}
+.card .map svg{width:100%;height:100%;overflow:visible}
+.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.card .code{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.18em;color:var(--faint)}
+.card .tag{font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.14em;
+  color:var(--amber);text-transform:uppercase}
+.card h4{font-family:"Saira Condensed";font-weight:800;font-size:25px;line-height:1.04;
+  text-transform:uppercase;letter-spacing:.01em}
+.card .blurb{margin-top:8px;font-size:14px;color:var(--dim);line-height:1.5;flex:1}
+.card .go{margin-top:15px;display:flex;align-items:center;justify-content:space-between;
+  font-family:"Saira Condensed";font-weight:700;font-size:13px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--teal);border-top:1px solid var(--line);padding-top:13px}
+.card .go .arrow{transition:transform .18s}
+.card:hover .go .arrow{transform:translateX(5px)}
+
+/* ---- ladder ---- */
+.ladder{display:grid;grid-template-columns:1fr;gap:0;max-width:760px;margin-top:6px}
+.rung{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:20px;
+  padding:18px 0;border-bottom:1px solid var(--line);position:relative}
+.rung .rk{font-family:"Space Mono",monospace;font-size:13px;color:var(--faint);
+  letter-spacing:.1em;padding-top:4px}
+.rung .ttl{font-family:"Saira Condensed";font-weight:800;font-size:clamp(22px,3vw,32px);
+  text-transform:uppercase;letter-spacing:.01em;line-height:1}
+.rung .gl{font-size:14px;color:var(--dim);margin-top:3px}
+.rung::before{content:"";position:absolute;left:24px;top:50%;width:8px;height:8px;border-radius:50%;
+  background:var(--line);transform:translateY(-50%)}
+.rung.last::before{background:var(--amber);box-shadow:0 0 0 4px rgba(240,200,96,.16)}
+.rung.last .ttl{color:var(--amber)}
+
+/* ---- footer ---- */
+.foot{margin-top:80px;border-top:1px solid var(--line);padding:34px 0 60px;
+  display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between}
+.foot .fb{font-family:"Space Mono",monospace;font-size:12.5px;color:var(--dim);letter-spacing:.02em}
+.foot .fb b{color:#cfd6e2;font-weight:400}
+.foot .cr{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--faint)}
+.foot .cr span{color:var(--teal)}
+
+@media(max-width:880px){
+  .hero{grid-template-columns:1fr;min-height:auto;padding:104px 0 30px;gap:8px}
+  .hero-r{max-width:440px;margin:18px auto 0}
+  .bar .nav a.lnk{display:none}
+  .scroll-hint{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *{scroll-behavior:auto}
+  .cta .dot{animation:none}
+}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <a href="#top" class="mk">Apex <em>Canada</em></a>
+  <nav class="nav">
+    <a href="#calendar" class="lnk">Calendar</a>
+    <a href="#ladder" class="lnk">The Ladder</a>
+    <a href="#" class="lnk" id="goOnlineNav">Race Online</a>
+    <a href="./apex-canada-3d.html" class="cta"><span class="dot"></span>Enter the Paddock</a>
+  </nav>
+</div>
+
+<a id="top"></a>
+<header class="hero wrap">
+  <svg class="maple" viewBox="0 0 200 200" aria-hidden="true"><path d="M 100.0 10.0 L 106.3 22.6 L 118.9 17.2 L 114.4 40.6 L 138.7 35.2 L 131.5 55.0 L 154.0 52.8 L 145.9 73.0 L 184.6 78.4 L 164.8 91.9 L 177.4 107.2 L 138.7 113.0 L 145.0 132.8 L 109.9 127.0 L 109.0 154.0 L 109.0 184.6 L 100.0 184.6 L 91.0 184.6 L 91.0 154.0 L 90.1 127.0 L 55.0 132.8 L 61.3 113.0 L 22.6 107.2 L 35.2 91.9 L 15.4 78.4 L 54.1 73.0 L 46.0 52.8 L 68.5 55.0 L 61.3 35.2 L 85.6 40.6 L 81.1 17.2 L 93.7 22.6 Z" fill="currentColor"/></svg>
+  <div class="hero-l">
+    <div class="eyebrow">Career · Street Racing Across Canada</div>
+    <h1 class="wordmark">Apex<em>Canada</em></h1>
+    <p class="lede">A solo-built racing game across real Canadian streets — now rebuilt in <b>true 3D</b>. Eight circuits from the Victoria harbour to the Calgary Bow to the Toronto lakeshore to the Banff Rockies, each modelled on the real coastline, landmarks, and climbs.</p>
+    <div class="hero-cta">
+      <a href="./apex-canada-3d.html" class="cta"><span class="dot"></span>Enter the Paddock</a>
+      <a href="#calendar" class="ghost">Pick a circuit</a>
+      <a href="#" class="ghost online" id="goOnline"><span class="odot"></span>Race Online</a>
+    </div>
+    <div class="byline">By Jeinis Patel · <b>a bored Barrister &amp; moonlighting PhD Candidate</b></div>
+  </div>
+  <div class="hero-r">
+    <div class="hero-tel tl">Featured Circuit</div>
+    <div class="hero-tel tr">Grade — Mountain<br>Saanich Inlet</div>
+    <svg id="heroSvg" viewBox="0 0 520 520" aria-hidden="true"></svg>
+    <div class="hero-tel bl"><b>04 / 07</b> — The Malahat Climb</div>
+  </div>
+  <div class="scroll-hint">scroll — the calendar</div>
+</header>
+
+<main class="wrap">
+  <section class="sect" id="calendar">
+    <div class="sect-head">
+      <h2>The Calendar</h2>
+      <div class="cnt">07 circuits · 03 cities</div>
+    </div>
+    <div id="calBody"></div>
+  </section>
+
+  <section class="sect" id="ladder">
+    <div class="sect-head">
+      <h2>The Ladder</h2>
+      <div class="cnt">Driver titles · earned by winning</div>
+    </div>
+    <div class="ladder" id="ladderBody"></div>
+  </section>
+
+  <footer class="foot">
+    <div class="fb">By Jeinis Patel · <b>another bored Barrister &amp; moonlighting PhD Candidate</b></div>
+    <div class="cr">Ethical AI <span>◈</span> Polymath · WebGL Build</div>
+  </footer>
+</main>
+
+<script>
+const CIRCUITS = {"harbour": {"city": "Victoria, BC", "name": "Harbour Circuit", "ctrl": [[700, 1500], [1500, 1480], [2200, 1430], [2520, 1180], [2580, 800], [2520, 520], [1900, 380], [1300, 420], [950, 640], [880, 1000], [620, 1280], [520, 1600], [560, 1980], [760, 2120], [700, 2360], [900, 2520], [1280, 2470], [1560, 2560], [1760, 2430], [2040, 2520], [2380, 2500], [2620, 2300], [2700, 2020], [2540, 1880], [2180, 1900], [1880, 1820], [1560, 1900], [1240, 1830], [980, 1920], [760, 1760]], "tag": "FLOWING", "blurb": "The classic capital loop \u2014 fast, flowing, harbour-side."}, "gorge": {"city": "Victoria, BC", "name": "The Gorge", "ctrl": [[820, 1480], [1340, 1420], [1620, 1520], [1780, 1340], [1660, 1120], [1380, 1080], [1500, 860], [1880, 800], [2020, 1000], [2120, 1320], [2060, 1560], [2300, 1720], [2480, 1980], [2300, 2420], [1960, 2440], [1740, 2180], [1860, 1880], [1700, 1760], [1500, 1820], [1320, 2040], [1380, 2320], [1180, 2480], [900, 2440], [760, 2220], [880, 1960], [700, 1820], [560, 1600], [640, 1360], [820, 1480]], "tag": "TECHNICAL", "blurb": "Tight, technical, twisting along the Gorge waterway \u2014 a driver's track."}, "sidney": {"city": "Victoria, BC", "name": "Peninsula Run", "ctrl": [[640, 2080], [1120, 2200], [1640, 2240], [2120, 2200], [2460, 2020], [2560, 1680], [2420, 1380], [2480, 1060], [2600, 760], [2460, 470], [2080, 400], [1680, 460], [1560, 760], [1700, 1040], [1520, 1260], [1160, 1240], [940, 1020], [1000, 700], [860, 460], [540, 500], [420, 820], [520, 1160], [760, 1380], [760, 1700], [640, 2080]], "tag": "FAST \u00b7 OPEN", "blurb": "The open drive up to Sidney \u2014 seafront straights past the airport and the ferries."}, "malahat": {"city": "Victoria, BC", "name": "The Malahat Climb", "ctrl": [[620, 2320], [1140, 2390], [1680, 2360], [2100, 2380], [2420, 2240], [2560, 1960], [2460, 1720], [2580, 1500], [2500, 1280], [2620, 1060], [2480, 760], [2560, 520], [2300, 400], [1900, 420], [1500, 440], [1120, 400], [760, 460], [520, 640], [440, 940], [600, 1220], [460, 1480], [600, 1740], [480, 2020]], "tag": "CLIMB \u00b7 ESSES", "blurb": "A twisting mountain pass \u2014 switchbacks and esses climbing to a ridge high over Saanich Inlet."}, "cordova": {"city": "Victoria, BC", "name": "Cordova Bay", "ctrl": [[2150, 2800], [2200, 2300], [2225, 1790], [2220, 1280], [2175, 780], [2070, 440], [1800, 300], [1380, 270], [980, 330], [640, 500], [400, 850], [330, 1290], [450, 1670], [330, 2060], [400, 2470], [620, 2770], [1000, 2870], [1460, 2830], [1880, 2800], [2030, 2710]], "tag": "FAST \u00b7 SEASIDE", "blurb": "A fast seaside sweep \u2014 long straights along Haro Strait, flowing bends past the golf links and Mount Douglas."}, "stampede": {"city": "Calgary, AB", "name": "Stampede Sprint", "ctrl": [[1700, 2120], [2200, 2030], [2640, 1860], [3200, 1800], [3760, 1580], [4120, 1180], [4000, 720], [3500, 420], [2960, 330], [2460, 340], [1980, 320], [1480, 360], [1000, 470], [520, 620], [-40, 760], [-560, 920], [-1080, 1120], [-1560, 1420], [-1820, 1820], [-1560, 2180], [-1000, 2280], [-440, 2180], [120, 2100], [640, 2040], [1080, 1920], [1420, 2040], [1600, 2110]], "tag": "STREET LOOP", "blurb": "A downtown street loop along the Bow \u2014 past the Saddledome and Stampede grounds, Calgary Tower inland, the Rockies on the horizon."}, "exhibition": {"city": "Toronto, ON", "name": "Exhibition Street Circuit", "ctrl": [[620, 1750], [900, 2080], [1450, 2260], [2150, 2290], [2850, 2230], [3550, 2090], [4150, 1850], [4600, 1480], [4750, 950], [4520, 460], [4000, 180], [3350, 130], [2650, 210], [1950, 360], [1400, 540], [950, 760], [680, 1150], [600, 1480]], "tag": "STREET \u00b7 LAKESHORE", "blurb": "The lakeshore street circuit around Exhibition Place \u2014 a long Lake Shore straight, tight grounds corners, CN Tower and Rogers Centre on the skyline, Lake Ontario to the south."}, "banff": {"city": "Banff, AB", "name": "Legacy Trail", "ctrl": [[560, 2280], [1120, 2360], [1700, 2380], [2260, 2340], [2740, 2180], [3020, 1900], [3080, 1540], [2960, 1220], [3060, 880], [2900, 560], [2520, 400], [2040, 360], [1560, 380], [1080, 350], [660, 460], [400, 760], [360, 1160], [500, 1500], [380, 1840], [480, 2080]], "tag": "CLIMB \u00b7 ALPINE", "blurb": "The Bow Valley legacy trail through Banff \u2014 a long alpine climb past Mount Rundle and Cascade, lakes on the valley floor, the Trans-Canada and its log trucks running alongside."}};
+const ORDER = ["harbour", "gorge", "sidney", "malahat", "cordova", "stampede", "exhibition", "banff"];
+const LADDER = [["Bored Barrister", "where every silk begins"], ["Weekend Wheelman", "billable hours, then track hours"], ["Moonlighting Racer", "the day job suspects nothing"], ["Counsel of Speed", "objection, your honour \u2014 overtaking"], ["Doctor of Velocity", "thesis pending, lap times falling"], ["Apex Silk", "called to the bar and the apex"]];
+const HERO = "malahat";
+function _startOnline(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let code=""; for(let i=0;i<4;i++)code+=A[Math.floor(Math.random()*A.length)]; location.href="./apex-canada-3d.html#"+HERO+"/mp/"+code; }
+for(const _id of ["goOnline","goOnlineNav"]){ const _b=document.getElementById(_id); if(_b)_b.addEventListener("click",e=>{e.preventDefault();_startOnline();}); }
+const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+function pathFromCtrl(ctrl,W,H,pad){
+  const xs=ctrl.map(p=>p[0]), ys=ctrl.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const bw=(maxX-minX)||1, bh=(maxY-minY)||1;
+  const s=Math.min((W-2*pad)/bw,(H-2*pad)/bh);
+  const ox=(W-bw*s)/2-minX*s, oy=(H-bh*s)/2-minY*s;
+  const P=ctrl.map(p=>[p[0]*s+ox,p[1]*s+oy]);
+  const n=P.length; let d=`M ${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)} `;
+  for(let i=0;i<n;i++){
+    const p0=P[(i-1+n)%n],p1=P[i],p2=P[(i+1)%n],p3=P[(i+2)%n];
+    const c1x=p1[0]+(p2[0]-p0[0])/6,c1y=p1[1]+(p2[1]-p0[1])/6;
+    const c2x=p2[0]-(p3[0]-p1[0])/6,c2y=p2[1]-(p3[1]-p1[1])/6;
+    d+=`C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)} `;
+  }
+  return d+'Z';
+}
+const SVGNS='http://www.w3.org/2000/svg';
+function el(tag,attrs){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+
+// hero circuit: draws itself, then a dot runs the lap
+(function(){
+  const svg=document.getElementById('heroSvg'); const d=pathFromCtrl(CIRCUITS[HERO].ctrl,520,520,46);
+  const casing=el('path',{d,fill:'none',stroke:'#1c2532','stroke-width':16,'stroke-linejoin':'round','stroke-linecap':'round'});
+  const line=el('path',{d,fill:'none',stroke:'var(--teal)','stroke-width':3.4,'stroke-linejoin':'round','stroke-linecap':'round'});
+  svg.append(casing,line);
+  const len=line.getTotalLength();
+  if(!reduce){
+    line.style.strokeDasharray=len; line.style.strokeDashoffset=len;
+    line.getBoundingClientRect();
+    line.style.transition='stroke-dashoffset 1.9s cubic-bezier(.7,0,.2,1)';
+    requestAnimationFrame(()=>{line.style.strokeDashoffset=0;});
+  }
+  const dot=el('circle',{r:5.5,fill:'var(--amber)'}); svg.append(dot);
+  const sf=el('circle',{r:4,fill:'none',stroke:'var(--ink)','stroke-width':2});
+  const p0=line.getPointAtLength(0); sf.setAttribute('cx',p0.x); sf.setAttribute('cy',p0.y); svg.append(sf);
+  if(!reduce){let t=0; const run=()=>{t=(t+0.0016)%1; const pt=line.getPointAtLength(t*len);
+    dot.setAttribute('cx',pt.x); dot.setAttribute('cy',pt.y); requestAnimationFrame(run);};
+    setTimeout(()=>requestAnimationFrame(run),1700);
+  } else {dot.setAttribute('cx',p0.x);dot.setAttribute('cy',p0.y);}
+})();
+
+// calendar grouped by city
+(function(){
+  const body=document.getElementById('calBody');
+  const cities=[]; ORDER.forEach(id=>{const c=CIRCUITS[id].city; if(!cities.includes(c))cities.push(c);});
+  let n=0;
+  cities.forEach(city=>{
+    const ids=ORDER.filter(id=>CIRCUITS[id].city===city);
+    const row=document.createElement('div'); row.className='city-row';
+    row.innerHTML=`<span class="tick"></span><h3>${city}</h3><span class="n">${String(ids.length).padStart(2,'0')} ${ids.length>1?'circuits':'circuit'}</span>`;
+    body.appendChild(row);
+    const grid=document.createElement('div'); grid.className='grid';
+    ids.forEach(id=>{
+      n++; const c=CIRCUITS[id];
+      const a=document.createElement('a'); a.className='card'; a.href='./apex-canada-3d.html#'+id;
+      a.innerHTML=`
+        <div class="map"><svg viewBox="0 0 300 206" aria-hidden="true">
+          <path d="${pathFromCtrl(c.ctrl,300,206,22)}" fill="none" stroke="#1c2532" stroke-width="11" stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="${pathFromCtrl(c.ctrl,300,206,22)}" fill="none" stroke="var(--teal)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg></div>
+        <div class="card-top"><span class="code">CIRCUIT ${String(n).padStart(2,'0')}</span><span class="tag">${c.tag}</span></div>
+        <h4>${c.name}</h4>
+        <p class="blurb">${c.blurb}</p>
+        <div class="go"><span>Race this circuit</span><span class="arrow">→</span></div>`;
+      grid.appendChild(a);
+    });
+    body.appendChild(grid);
+  });
+})();
+
+// ladder
+(function(){
+  const body=document.getElementById('ladderBody');
+  LADDER.forEach((t,i)=>{
+    const r=document.createElement('div'); r.className='rung'+(i===LADDER.length-1?' last':'');
+    r.innerHTML=`<div class="rk">RANK ${String(i+1).padStart(2,'0')}</div>
+      <div><div class="ttl">${t[0]}</div><div class="gl">${t[1]}</div></div>`;
+    body.appendChild(r);
+  });
+})();
+</script>
+</body>
+</html>
