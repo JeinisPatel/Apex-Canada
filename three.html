@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Apex Canada 3D Prototype</title>
+  <style>
+    :root{--bg:#05070d;--ink:#e9edf4;--dim:#8b93a3;--accent:#39d2c0;--warn:#f0c860}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:"Avenir Next","Segoe UI",system-ui,sans-serif}
+    #apex3d{position:absolute;inset:0;width:100%;height:100%;display:block}
+    .hud{position:absolute;z-index:4;pointer-events:none;text-shadow:0 2px 18px rgba(0,0,0,.9)}
+    #brand{top:16px;left:16px;background:linear-gradient(180deg,rgba(9,12,18,.82),rgba(9,12,18,.54));border:1px solid rgba(255,255,255,.12);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;backdrop-filter:blur(8px)}
+    #brand h1{font-size:18px;font-weight:900;font-style:italic;letter-spacing:.12em;text-transform:uppercase}
+    #brand p{font-size:12px;color:var(--dim);margin-top:3px;letter-spacing:.08em;text-transform:uppercase}
+    #dash{right:16px;bottom:18px;text-align:right;background:linear-gradient(180deg,rgba(9,12,18,.82),rgba(9,12,18,.54));border:1px solid rgba(255,255,255,.12);border-left:3px solid #3a7fe8;border-radius:8px;padding:12px 16px;min-width:190px;backdrop-filter:blur(8px)}
+    #speed{font-size:54px;font-weight:900;font-style:italic;line-height:.9;letter-spacing:-.05em}
+    .unit{font-size:11px;color:var(--dim);letter-spacing:.18em;font-weight:800;margin-top:6px;text-transform:uppercase}
+    .row{display:flex;gap:18px;justify-content:space-between;font-size:13px;line-height:1.8;color:var(--dim);font-variant-numeric:tabular-nums}
+    .row b{color:var(--ink)}
+    #help{left:50%;bottom:16px;transform:translateX(-50%);padding:7px 16px;border-radius:999px;background:rgba(7,9,14,.46);border:1px solid rgba(255,255,255,.1);font-size:12px;color:rgba(233,237,244,.72);letter-spacing:.04em;backdrop-filter:blur(8px)}
+    #help b{color:var(--accent)}
+    #ribbon{position:absolute;z-index:3;left:50%;top:17px;transform:translateX(-50%);padding:7px 18px;border-radius:999px;border:1px solid rgba(240,200,96,.32);background:rgba(16,14,8,.58);color:var(--warn);font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;pointer-events:none}
+    a{color:var(--accent)}
+    @media(max-width:760px){#brand h1{font-size:14px}#help{display:none}#speed{font-size:44px}}
+  </style>
+</head>
+<body>
+  <canvas id="apex3d"></canvas>
+  <div class="hud" id="brand">
+    <h1>Apex Canada 3D</h1>
+    <p id="status">Harbour 3D shakedown</p>
+  </div>
+  <div id="ribbon">WebGL Prototype</div>
+  <div class="hud" id="dash">
+    <div id="speed">000</div>
+    <div class="unit">km/h</div>
+    <div class="row"><span>Lap</span><b><span id="lap">1</span>/3</b></div>
+    <div class="row"><span>View</span><b id="view">CHASE</b></div>
+  </div>
+  <div class="hud" id="help">↑/W throttle · ↓/S brake · ←→/A D steer · <b>Shift boost</b> · V camera · <a href="./index.html">2D career build</a></div>
+  <script type="module" src="./src/three-apex-data.js"></script>
+</body>
+</html>
