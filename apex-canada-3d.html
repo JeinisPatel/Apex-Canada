@@ -1473,7 +1473,7 @@ function cycleView(){view=view==='CHASE'?'COCKPIT':view==='COCKPIT'?'BUMPER':'CH
 function resize(){renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();}
 /* ============================ ONLINE MULTIPLAYER ============================ */
 /* Set this to your deployed PartyKit host (no protocol), e.g. apex-canada.jeinis.partykit.dev */
-const PARTY_HOST='apex-canada.YOUR-USERNAME.partykit.dev';
+const PARTY_HOST='apex-canada.jeinispatel.partykit.dev';
 const MP_LIVERY=[[0xe8443a,0x6a1a14],[0x3a7fe8,0x10316e],[0xf0c860,0x7a5410],[0x9a5ae8,0x3c1a6e],[0x3ecf6e,0x0f5e2c],[0xe87fd0,0x6e1a5a],[0xff8a3a,0x7a3a10],[0x4ad6c0,0x0e5a52]];
 const MP_NAMES=['Falcon','Comet','Viper','Bolt','Lynx','Apex','Rebel','Storm','Maple','Drift'];
 function mpCode(){ let s=''; for(let i=0;i<4;i++)s+='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]; return s; }
@@ -1568,7 +1568,6 @@ function createNet(){
 {const ob=document.getElementById('onlinebtn'); if(ob)ob.onclick=()=>{ location.hash=TRACK_ID+'/mp/'+mpCode(); location.reload(); };}
 if(MP_ROOM)net=createNet();
 function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
-
   </script>
 </body>
 </html>
