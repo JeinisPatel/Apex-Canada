@@ -291,7 +291,7 @@ const CIRCUITS = {
   cordova:{name:'Cordova Bay', ctrl:[[2150,2800],[2200,2300],[2225,1790],[2220,1280],[2175,780],[2070,440],[1800,300],[1380,270],[980,330],[640,500],[400,850],[330,1290],[450,1670],[330,2060],[400,2470],[620,2770],[1000,2870],[1460,2830],[1880,2800],[2030,2710]]},
   stampede:{name:'Stampede Sprint', ctrl:[[1700,2120],[2200,2030],[2640,1860],[3200,1800],[3760,1580],[4120,1180],[4000,720],[3500,420],[2960,330],[2460,340],[1980,320],[1480,360],[1000,470],[520,620],[-40,760],[-560,920],[-1080,1120],[-1560,1420],[-1820,1820],[-1560,2180],[-1000,2280],[-440,2180],[120,2100],[640,2040],[1080,1920],[1420,2040],[1600,2110]]},
   exhibition:{name:'Exhibition Street Circuit', backdrop:'skyline', ctrl:[[620,1750],[900,2080],[1450,2260],[2150,2290],[2850,2230],[3550,2090],[4150,1850],[4600,1480],[4750,950],[4520,460],[4000,180],[3350,130],[2650,210],[1950,360],[1400,540],[950,760],[680,1150],[600,1480]]},
-  banff:{name:'Legacy Trail', ctrl:[[560,2280],[1120,2360],[1700,2380],[2260,2340],[2740,2180],[3020,1900],[3080,1540],[2960,1220],[3060,880],[2900,560],[2520,400],[2040,360],[1560,380],[1080,350],[660,460],[400,760],[360,1160],[500,1500],[380,1840],[480,2080]], climb:400, roll:46, scale:0.255, highway:true},
+  banff:{name:'Legacy Trail', ctrl:[[560,2280],[1120,2360],[1700,2380],[2260,2340],[2740,2180],[3020,1900],[3080,1540],[2960,1220],[3060,880],[2900,560],[2520,400],[2040,360],[1560,380],[1080,350],[660,460],[400,760],[360,1160],[500,1500],[380,1840],[480,2080]], climb:300, roll:34, scale:0.34, highway:true},
 };
 const _HASH=location.hash.slice(1).split('/');
 const TRACK_ID=(_HASH[0].match(/^(harbour|gorge|sidney|malahat|cordova|stampede|exhibition|banff)$/)||[])[0]||'stampede';
@@ -640,18 +640,18 @@ const WATER_BANFF=[
 const WATERS={harbour:WATER_HARBOUR,gorge:WATER_GORGE,sidney:WATER_SIDNEY,malahat:WATER_MALAHAT,cordova:WATER_CORDOVA,stampede:WATER_CALGARY,exhibition:WATER_TORONTO,banff:WATER_BANFF};
 const LAND_BANFF=[
   /* the Rockies ringing the Bow Valley — far background, huge, labelled */
-  {x:1720,y:-831, t:"cascade", label:"Cascade Mtn"},
-  {x:3916,y:1365, t:"rundle",  label:"Mount Rundle"},
-  {x:3273,y:-188, t:"sulphur", label:"Sulphur Mtn"},
-  {x:-476,y:1365, t:"sister",  label:"Three Sisters"},
-  {x:-476,y:1620, t:"sister",  label:""},
-  {x:-476,y:1110, t:"sister",  label:""},
-  {x:3273,y:2918, t:"peak",    label:""},
-  {x:167, y:2918, t:"peak",    label:""},
-  {x:1720,y:3561, t:"peak",    label:""},
-  {x:167, y:-188, t:"peak",    label:""},
-  {x:3916,y:680,  t:"peak",    label:""},
-  {x:3916,y:2050, t:"peak",    label:""},
+  {x:1720,y:-547, t:"cascade", label:"Cascade Mtn"},
+  {x:3632,y:1365, t:"rundle",  label:"Mount Rundle"},
+  {x:3072,y:13,   t:"sulphur", label:"Sulphur Mtn"},
+  {x:-192,y:1365, t:"sister",  label:"Three Sisters"},
+  {x:-192,y:1565, t:"sister",  label:""},
+  {x:-192,y:1165, t:"sister",  label:""},
+  {x:3072,y:2717, t:"peak",    label:""},
+  {x:368, y:2717, t:"peak",    label:""},
+  {x:1720,y:3277, t:"peak",    label:""},
+  {x:368, y:13,   t:"peak",    label:""},
+  {x:3632,y:850,  t:"peak",    label:""},
+  {x:3632,y:1880, t:"peak",    label:""},
   /* montane spruce + lodgepole pine through the wildlife corridor (road-guarded) */
   {x:1500,y:1100, t:"fir", label:"", ph:0.0},
   {x:1850,y:1350, t:"fir", label:"", ph:0.7},
@@ -757,7 +757,7 @@ if(MODE==='quali'){
 }
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
-const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:75};
+const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
 const DIFFS=[{n:'Rookie',mul:0.86},{n:'Pro',mul:1.0},{n:'Ace',mul:1.14}]; let diffIdx=1;
 const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0};
 const timeEl=document.getElementById('rtime'), bestEl=document.getElementById('rbest'), drsEl=document.getElementById('drs'), tyreFill=document.getElementById('tyrefill');
@@ -1303,7 +1303,7 @@ function buildWorld(){
   const CL=[]; for(let i=0;i<260;i++){const cp=curve.getPointAt(i/260); CL.push(cp.x,cp.z);}
   function tooClose(x,z,m){const R=m||ROAD_W*1.35; for(let j=0;j<CL.length;j+=2){const dx=CL[j]-x,dz=CL[j+1]-z; if(dx*dx+dz*dz<R*R) return true;} return false;}
   // ground
-  const ground=new THREE.Mesh(new THREE.PlaneGeometry(2600,2600),new THREE.MeshStandardMaterial({color:0x2f3a2a,roughness:.97}));
+  const _GP=2600*Math.max(1,SCALE/0.17); const ground=new THREE.Mesh(new THREE.PlaneGeometry(_GP,_GP),new THREE.MeshStandardMaterial({color:0x2f3a2a,roughness:.97}));
   ground.rotation.x=-Math.PI/2; ground.position.y=-.5; ground.receiveShadow=true; g.add(ground);
   // hillside embankment: drops from each road edge down to the ground so the road never floats
   (function(){
@@ -1375,7 +1375,7 @@ function buildWorld(){
       const tw=new THREE.Mesh(new THREE.BoxGeometry(w,hh,w),new THREE.MeshStandardMaterial({color:gc[i%6],roughness:.2,metalness:.5,emissive:gc[i%6],emissiveIntensity:.06}));
       tw.position.set(Math.cos(a)*R,hh/2,Math.sin(a)*R);tw.rotation.y=Math.random()*1.5;tw.castShadow=true;g.add(tw);}
   } else {
-    for(let i=0;i<24;i++){const a=i/24*Math.PI*2,R=720+((i*53)%180),hh=170+((i*97)%200),rad=110+((i*37)%80);
+    const RINGK=Math.min(Math.max(SCALE/0.255,1),1.4); for(let i=0;i<24;i++){const a=i/24*Math.PI*2,R=(720+((i*53)%180))*RINGK,hh=170+((i*97)%200),rad=110+((i*37)%80);
       const M=mkMassif(Math.cos(a)*R,Math.sin(a)*R,hh,rad); M.position.y=hh/2-22; g.add(M);
       if(i%2===0){const a2=a+0.04,M2=mkMassif(Math.cos(a2)*(R+60),Math.sin(a2)*(R+60),hh*0.6,rad*0.72); M2.position.y=hh*0.3-22; g.add(M2);}}
     // black bears grazing the meadow below the peaks
