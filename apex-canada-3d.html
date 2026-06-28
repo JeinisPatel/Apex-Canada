@@ -660,10 +660,12 @@ const LAND_BANFF=[
   {x:3632,y:850,  t:"peak",    label:""},
   {x:3632,y:1880, t:"peak",    label:""},
   /* Banff landmarks — placed in the infield, off the racing line */
-  {x:2200,y:1850, t:"springs",    label:"Banff Springs"},
-  {x:1000,y:1650, t:"rimrock",    label:"Rimrock"},
-  {x:1500,y:1300, t:"banffstrip", label:"Banff Ave"},
-  {x:1350,y:2050, t:"gondola",    label:"Sulphur Gondola"},
+  /* Banff landmarks — anchored beside the racing line so you drive past them */
+  {x:0,y:0, t:"banffstrip", roadT:0.075, roadOff:18,  label:"Banff Ave"},
+  {x:0,y:0, t:"banffstrip", roadT:0.075, roadOff:-18, label:""},
+  {x:0,y:0, t:"springs",    roadT:0.13,  roadOff:-52, label:"Banff Springs"},
+  {x:0,y:0, t:"rimrock",    roadT:0.90,  roadOff:62,  label:"Rimrock"},
+  {x:0,y:0, t:"gondola",    roadT:0.86,  roadOff:55, faceOut:true, label:"Sulphur Gondola"},
   /* montane spruce + lodgepole pine through the wildlife corridor (road-guarded) */
   {x:1500,y:1100, t:"fir", label:"", ph:0.0},
   {x:1850,y:1350, t:"fir", label:"", ph:0.7},
@@ -1423,7 +1425,8 @@ function buildWorld(){
     k.rotation.y=2.5; k.position.set(wx,0,wz); return k;
   }
   for(const l of LAND){
-    const c=W2(l.x,l.y), wx=c[0], wz=c[1]; let h=12;
+    const c=W2(l.x,l.y); let wx=c[0], wz=c[1], h=12, hd=null;
+    if(l.roadT!=null){ const _p=curve.getPointAt(l.roadT), _tn=curve.getTangentAt(l.roadT).normalize(); let _nm=new THREE.Vector3(-_tn.z,0,_tn.x).normalize(); if(_nm.dot(_p)<0)_nm.negate(); const _o=l.roadOff||0; wx=_p.x+_nm.x*_o; wz=_p.z+_nm.z*_o; if(l.faceOut){hd=Math.atan2(-_nm.z,_nm.x);} else {const _fx=(_o>=0?-_nm.x:_nm.x),_fz=(_o>=0?-_nm.z:_nm.z); hd=Math.atan2(_fx,_fz);} }
     if(l.t==='fir'){ if(!tooClose(wx,wz))g.add(mkFir(wx,wz,1+Math.random()*.5)); continue;}
     else if(l.t==='oak'){ if(!tooClose(wx,wz))g.add(mkOak(wx,wz,1+Math.random()*.4)); continue;}
     else if(MTN_T[l.t]){g.add(mkPeak(wx,wz,MTN_T[l.t][0],MTN_T[l.t][1])); h=MTN_T[l.t][0];}
@@ -1453,10 +1456,10 @@ function buildWorld(){
     else if(BOAT_T[l.t]!==undefined && l.t!=='sailboat'){g.add(mkBoat(wx,wz,BOAT_T[l.t])); h=4;}
     else if(l.t==='sailboat'){g.add(mkSail(wx,wz)); h=9;}
     else if(SKIP_T.indexOf(l.t)>=0){ continue; }
-    else if(l.t==='springs'){g.add(mkBanffSprings(wx,wz)); h=48;}
-    else if(l.t==='rimrock'){g.add(mkRimrock(wx,wz)); h=22;}
-    else if(l.t==='banffstrip'){g.add(mkBanffStrip(wx,wz)); h=14;}
-    else if(l.t==='gondola'){g.add(mkSulphurGondola(wx,wz)); h=8;}
+    else if(l.t==='springs'){const o=mkBanffSprings(wx,wz); if(hd!=null)o.rotation.y=hd; g.add(o); h=48;}
+    else if(l.t==='rimrock'){const o=mkRimrock(wx,wz); if(hd!=null)o.rotation.y=hd; g.add(o); h=22;}
+    else if(l.t==='banffstrip'){const o=mkBanffStrip(wx,wz); if(hd!=null)o.rotation.y=hd; g.add(o); h=14;}
+    else if(l.t==='gondola'){const o=mkSulphurGondola(wx,wz); if(hd!=null)o.rotation.y=hd; g.add(o); h=8;}
     else { g.add(mkStruct(l.t,wx,wz)); h=(STRUCT[l.t]?STRUCT[l.t].h:12); }
     if(l.label) g.add(mkLabel(l.label,wx,wz,h+5));
   }
