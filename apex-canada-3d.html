@@ -692,22 +692,8 @@ const track = buildTrack();
 scene.add(track);
 const ANIM=[];   // per-frame updaters for orcas, seaplanes, etc.
 const worldGroup = buildWorld(); scene.add(worldGroup);
-// drifting cloud sprites + sky-dome follow & recolour
-(function(){
-  const cv=document.createElement('canvas'); cv.width=cv.height=128; const cx=cv.getContext('2d');
-  for(let i=0;i<7;i++){ const bx=64+(Math.random()-0.5)*60, by=64+(Math.random()-0.5)*36, rr=20+Math.random()*30;
-    const gr=cx.createRadialGradient(bx,by,0,bx,by,rr); gr.addColorStop(0,'rgba(255,255,255,0.85)'); gr.addColorStop(1,'rgba(255,255,255,0)');
-    cx.fillStyle=gr; cx.beginPath(); cx.arc(bx,by,rr,0,7); cx.fill(); }
-  const ctex=new THREE.CanvasTexture(cv);
-  for(let i=0;i<13;i++){
-    const m=new THREE.SpriteMaterial({map:ctex,transparent:true,opacity:0.5+Math.random()*0.32,depthWrite:false,fog:false});
-    const s=new THREE.Sprite(m); const sc=320+Math.random()*420; s.scale.set(sc,sc*0.5,1);
-    const ang=Math.random()*6.283, rad=400+Math.random()*1000;
-    s.position.set(Math.cos(ang)*rad, 300+Math.random()*280, Math.sin(ang)*rad);
-    scene.add(s); const drift=6+Math.random()*9;
-    ANIM.push((t,dt)=>{ s.position.x+=drift*dt; if(s.position.x>1700) s.position.x-=3400; }); }
-  ANIM.push(()=>{ skyDome.position.copy(camera.position); skyMat.uniforms.top.value.copy(scene.background).multiplyScalar(0.86); skyMat.uniforms.bot.value.copy(scene.fog.color); });
-})();
+// keep the sky dome centred on the camera and recoloured from the live palette
+ANIM.push(()=>{ skyDome.position.copy(camera.position); skyMat.uniforms.top.value.copy(scene.background).multiplyScalar(0.86); skyMat.uniforms.bot.value.copy(scene.fog.color); });
 
 /* ---------- time of day: T cycles Dawn -> Day -> Dusk -> Night ---------- */
 const TODS=[
