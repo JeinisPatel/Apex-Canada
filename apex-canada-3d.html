@@ -663,9 +663,9 @@ const LAND_BANFF=[
   /* Banff landmarks — anchored beside the racing line so you drive past them */
   {x:0,y:0, t:"banffstrip", roadT:0.085, roadOff:15,  shops:16, label:"Banff Ave"},
   {x:0,y:0, t:"banffstrip", roadT:0.085, roadOff:-15, shops:16, label:""},
-  {x:0,y:0, t:"springs",    roadT:0.13,  roadOff:-52, label:"Banff Springs"},
-  {x:0,y:0, t:"rimrock",    roadT:0.90,  roadOff:62,  label:"Rimrock"},
-  {x:0,y:0, t:"gondola",    roadT:0.86,  roadOff:55, faceOut:true, label:"Sulphur Gondola"},
+  {x:0,y:0, t:"springs",    roadT:0.13,  roadOff:-34, label:"Banff Springs"},
+  {x:0,y:0, t:"rimrock",    roadT:0.90,  roadOff:44,  label:"Rimrock"},
+  {x:0,y:0, t:"gondola",    roadT:0.86,  roadOff:44, faceOut:true, label:"Sulphur Gondola"},
   /* montane spruce + lodgepole pine through the wildlife corridor (road-guarded) */
   {x:1500,y:1100, t:"fir", label:"", ph:0.0},
   {x:1850,y:1350, t:"fir", label:"", ph:0.7},
@@ -1467,9 +1467,11 @@ function buildWorld(){
     else { g.add(mkStruct(l.t,wx,wz)); h=(STRUCT[l.t]?STRUCT[l.t].h:12); }
     if(l.label) g.add(mkLabel(l.label,wx,wz,h+5));
   }
-  // ambient roadside conifers (Vancouver Island treeline)
+  // ambient roadside conifers (Vancouver Island treeline) — cleared near landmarks
   const TREE_STEP=Math.max(4,Math.round((circuit.climb?7:16)*(0.17/SCALE))), SIDES=circuit.climb?[1,-1]:null;
-  for(let i=0;i<SAMPLES;i+=TREE_STEP){const t=i/SAMPLES,p=curve.getPointAt(t),tan=curve.getTangentAt(t).normalize(),nn=new THREE.Vector3(-tan.z,0,tan.x).normalize();
+  const CLEARZ=LAND.filter(l=>l.roadT!=null && (l.t==='springs'||l.t==='rimrock'||l.t==='banffstrip'||l.t==='gondola')).map(l=>l.roadT);
+  for(let i=0;i<SAMPLES;i+=TREE_STEP){const t=i/SAMPLES; let _sk=false; for(const cz of CLEARZ){let dt=Math.abs(t-cz); dt=Math.min(dt,1-dt); if(dt<0.05){_sk=true;break;}} if(_sk)continue;
+    const p=curve.getPointAt(t),tan=curve.getTangentAt(t).normalize(),nn=new THREE.Vector3(-tan.z,0,tan.x).normalize();
     for(const side of (SIDES||[i%32<16?1:-1])){
       const off=ROAD_W/2+12+Math.random()*40, sp=p.clone().addScaledVector(nn,side*off);
       if(tooClose(sp.x,sp.z,ROAD_W/2+4))continue;
