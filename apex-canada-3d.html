@@ -774,7 +774,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
-const DIFFS=[{n:'Rookie',mul:0.86},{n:'Pro',mul:1.0},{n:'Ace',mul:1.14}]; let diffIdx=1;
+const DIFFS=[{n:'Rookie',mul:0.86},{n:'Pro',mul:1.06},{n:'Ace',mul:1.14}]; let diffIdx=1;
 const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0};
 const timeEl=document.getElementById('rtime'), bestEl=document.getElementById('rbest'), drsEl=document.getElementById('drs'), tyreFill=document.getElementById('tyrefill');
 const lightsBox=document.getElementById('lights'), gomsg=document.getElementById('gomsg');
@@ -1728,7 +1728,7 @@ function updateCar(car,dt){
       if(racing&&Math.random()<chance) car.flameOn=0.05+Math.random()*0.09; }
   }else if(race.state==='racing'){
     if(_pitting){ car.speed-=36*dt; if(car.speed<0)car.speed=0; const HW=ROAD_W/2+4.5; car.lateral=THREE.MathUtils.lerp(car.lateral,HW*0.72,1-Math.pow(.05,dt)); }
-    else { const tg=0.7+0.3*car.tyre; const target=car.maxSpeed*car.pace*DIFFS[diffIdx].mul*tg*(.86+.08*Math.sin(performance.now()*.0004+car.progress*12)); car.speed=THREE.MathUtils.lerp(car.speed,target,.8*dt); car.lateral=Math.sin(performance.now()*.0006+car.progress*32)*2.2; car.tyre=Math.max(0.2,car.tyre-WEAR_RATE*((car.speed*dt)/LAPDIV)*1.05); }
+    else { const tg=0.7+0.3*car.tyre; const target=car.maxSpeed*car.pace*DIFFS[diffIdx].mul*tg*(.95+.05*Math.sin(performance.now()*.0004+car.progress*12)); car.speed=THREE.MathUtils.lerp(car.speed,target,.8*dt); car.lateral=Math.sin(performance.now()*.0006+car.progress*32)*2.2; car.tyre=Math.max(0.2,car.tyre-WEAR_RATE*((car.speed*dt)/LAPDIV)*1.05); }
   }
   if(race.state==='racing'){ car.last=car.progress; car.progress=(car.progress+(car.speed*dt)/LAPDIV)%1; if(car.progress<car.last){ car.lap++; onLapComplete(car); if(car.lap<=LAPS){ const wp=car.isPlayer?car.wantPit:(car.tyre<0.4&&LAPS>=4&&(car.pitStops||0)<1&&car.lap<LAPS); if(wp){ car.pitT=PIT_TIME; car.wantPit=false; if(car.isPlayer){flash('IN THE PITS \u2014 STOP-GO'); if(typeof setPitBtn==='function')setPitBtn();} } } } car.total=(car.lap-1)+car.progress; }
   const p=curve.getPointAt(car.progress), tan=curve.getTangentAt(car.progress).normalize(), n=new THREE.Vector3(-tan.z,0,tan.x).normalize(), pos=p.clone().addScaledVector(n,car.lateral);
