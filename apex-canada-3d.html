@@ -775,6 +775,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v67 — fallible AI + dynamic time of day + dynamic weather (wet grip) */
 /* BUILD v66 — slipstream tow + dirty air (grip loss when following close) */
 /* BUILD v65 — weight transfer (roll + pitch) and camera lag */
 /* BUILD v64 — arcade pass 4/4: reactive HUD (accent dash, glowing speed, boost gold) */
@@ -801,6 +802,7 @@ function updateRace(dt){
 }
 function onLapComplete(car){
   if(car!==player)return;
+  if(MODE!=='quali'&&race.state==='racing'&&car.lap<=LAPS){ applyTOD(todIdx+1); applyWX(wxIdx); flash('TIME: '+TODS[todIdx].name); }  // v67: the race day rolls on
   if(MODE==='quali'){
     if(race.phase==='out'){ race.phase='hot'; race.clock=0; race.lapStart=0; if(typeof flash==='function')flash('HOT LAP \u2014 GO'); }
     else if(race.phase==='hot'){ race.hot=race.clock; finishRace(); }
@@ -915,7 +917,9 @@ function musicTick(){
   }
 }
 // ---- weather / atmosphere (layers on top of time-of-day) ----
-const WX=['CLEAR','OVERCAST','RAIN','STORM']; let wxIdx=0; let rainGroup=null, rainPos=null; const RAIN_N=900;
+const WX=['CLEAR','OVERCAST','RAIN','STORM']; let wxIdx=0;
+const WET_GRIP=[1,1,0.82,0.70], WET_PACE=[1,0.99,0.94,0.88];   // v67: rain cuts player grip and AI pace
+const AI_ERR=[0.045,0.026,0.013]; let rainGroup=null, rainPos=null; const RAIN_N=900;
 const storm={on:false,t:0,flash:0,thunderAt:0,thunderVol:0};
 function buildRain(){ const g=new THREE.BufferGeometry(); const arr=new Float32Array(RAIN_N*6);
   for(let i=0;i<RAIN_N;i++){ const x=(Math.random()-.5)*190,y=Math.random()*120,z=(Math.random()-.5)*190,len=2.6+Math.random()*2.6,o=i*6; arr[o]=x;arr[o+1]=y;arr[o+2]=z;arr[o+3]=x+0.7;arr[o+4]=y-len;arr[o+5]=z; }
@@ -1753,7 +1757,7 @@ function updateCar(car,dt){
     if(onGrass)car.speed-=26*dt;                                   // grass scrubs your speed
     car.speed=THREE.MathUtils.clamp(car.speed,0,(boost?car.maxSpeed*1.13:car.maxSpeed)*(car.dmgMul||1)*(1+car.tow*0.06));  // v66: tow raises top speed
     car.steer=THREE.MathUtils.lerp(car.steer,(left?-1:0)+(right?1:0),1-Math.pow(.0016,dt));
-    const grip=(onGrass?.4:1)*(0.62+0.38*car.tyre)*(1-car.tow*0.26);  // grip falls with tyre wear — and in dirty air (v66)
+    const grip=(onGrass?.4:1)*(0.62+0.38*car.tyre)*(1-car.tow*0.26)*WET_GRIP[wxIdx];  // tyre wear, dirty air (v66), rain (v67)
     const t0=curve.getTangentAt(car.progress).normalize(), t1=curve.getTangentAt((car.progress+.006)%1).normalize();
     const drift=-(t0.x*t1.z-t0.z*t1.x);                            // centrifugal — fast corners run you wide
     car.lateral+=car.steer*dt*(13+car.speed*.085)*grip + drift*car.speed*.7*dt;
@@ -1772,7 +1776,26 @@ function updateCar(car,dt){
       if(racing&&Math.random()<chance) car.flameOn=0.05+Math.random()*0.09; }
   }else if(race.state==='racing'){
     if(_pitting){ car.speed-=36*dt; if(car.speed<0)car.speed=0; const HW=ROAD_W/2+4.5; car.lateral=THREE.MathUtils.lerp(car.lateral,HW*0.72,1-Math.pow(.05,dt)); }
-    else { const tg=0.7+0.3*car.tyre; const target=car.maxSpeed*car.pace*DIFFS[diffIdx].mul*tg*(.95+.05*Math.sin(performance.now()*.0004+car.progress*12)); car.speed=THREE.MathUtils.lerp(car.speed,target,.8*dt); car.bump=(car.bump||0)*Math.pow(.25,dt); car.lateral=Math.sin(performance.now()*.0006+car.progress*32)*2.2+car.bump; car.tyre=Math.max(0.2,car.tyre-WEAR_RATE*((car.speed*dt)/LAPDIV)*1.05); }
+    else { const tg=0.7+0.3*car.tyre;
+    /* v67: fallible AI — mistakes under pressure and on worn tyres; defends the inside when attacked */
+    let _dpP=player.progress-car.progress; if(_dpP>0.5)_dpP-=1; else if(_dpP<-0.5)_dpP+=1;
+    const _gapP=Math.abs(_dpP)*LAPLEN, _press=(race.state==='racing'&&_gapP<26)?1:0;
+    if((car.errT||0)>0)car.errT-=dt;
+    else if(race.state==='racing'&&Math.random()<(AI_ERR[diffIdx]+(1-car.tyre)*0.022+_press*0.02)*dt){
+      car.errT=1.25;
+      const _e0=curve.getTangentAt(car.progress).normalize(),_e1=curve.getTangentAt((car.progress+.006)%1).normalize();
+      const _dr=-(_e0.x*_e1.z-_e0.z*_e1.x);
+      car.errOff=Math.abs(_dr)>0.004?Math.sign(_dr)*3.4:0;
+      if(_gapP<60)flash(car.errOff?'RIVAL RUNS WIDE':'RIVAL LOCKS UP');
+    }
+    car.errOff=(car.errOff||0)*Math.pow(.5,dt);
+    const _base=Math.sin(performance.now()*.0006+car.progress*32)*2.2;
+    car.defOff=THREE.MathUtils.lerp(car.defOff||0,(_press&&_dpP<0&&(car.errT||0)<=0)?THREE.MathUtils.clamp(player.lateral-_base,-2.4,2.4)*0.8:0,1-Math.pow(.08,dt));
+    const target=car.maxSpeed*car.pace*DIFFS[diffIdx].mul*tg*WET_PACE[wxIdx]*((car.errT||0)>0?0.8:1)*(.95+.05*Math.sin(performance.now()*.0004+car.progress*12));
+    car.speed=THREE.MathUtils.lerp(car.speed,target,.8*dt);
+    car.bump=(car.bump||0)*Math.pow(.25,dt);
+    car.lateral=_base+car.bump+car.defOff+car.errOff;
+    car.tyre=Math.max(0.2,car.tyre-WEAR_RATE*((car.speed*dt)/LAPDIV)*1.05); }
   }
   if(race.state==='racing'){ car.last=car.progress; car.progress=(car.progress+(car.speed*dt)/LAPDIV)%1; if(car.progress<car.last){ car.lap++; onLapComplete(car); if(car.lap<=LAPS){ const wp=car.isPlayer?car.wantPit:(car.tyre<0.4&&LAPS>=4&&(car.pitStops||0)<1&&car.lap<LAPS); if(wp){ car.pitT=PIT_TIME; car.wantPit=false; if(car.isPlayer){flash('IN THE PITS \u2014 STOP-GO'); if(typeof setPitBtn==='function')setPitBtn();} } } } car.total=(car.lap-1)+car.progress; }
   const p=curve.getPointAt(car.progress), tan=curve.getTangentAt(car.progress).normalize(), n=new THREE.Vector3(-tan.z,0,tan.x).normalize(), pos=p.clone().addScaledVector(n,car.lateral);
@@ -1955,7 +1978,18 @@ function speedFX(dt){
     fxx.stroke();
   }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); speedFX(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
+/* v67: dynamic weather — conditions drift every 18-38s during races, biased to worsen then clear */
+let wxT=18+Math.random()*20;
+function dynWX(dt){
+  if(race.state!=='racing'||MODE==='quali')return;
+  wxT-=dt; if(wxT>0)return;
+  wxT=18+Math.random()*20;
+  const r=Math.random(); let d=0;
+  if(wxIdx>=3)d=(r<0.7?-1:0); else if(r<0.40)d=1; else if(r<0.78)d=-1;
+  const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
+  if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
+}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
