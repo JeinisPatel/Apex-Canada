@@ -23,8 +23,8 @@
     #modes button[data-m="quali"].on{background:var(--warn);border-color:var(--warn)}
     #modes button.diff{border-color:rgba(240,200,96,.5);color:var(--warn);background:rgba(16,14,8,.6);margin-left:6px}
     #modes button.diff:hover{background:var(--warn);color:#05070d}
-    #dash{right:16px;bottom:18px;text-align:right;background:linear-gradient(180deg,rgba(9,12,18,.82),rgba(9,12,18,.54));border:1px solid rgba(255,255,255,.12);border-left:3px solid #3a7fe8;border-radius:8px;padding:12px 16px;min-width:200px;backdrop-filter:blur(8px)}
-    #speed{font-size:54px;font-weight:900;font-style:italic;line-height:.9;letter-spacing:-.05em}
+    #dash{right:16px;bottom:18px;text-align:right;background:linear-gradient(180deg,rgba(9,12,18,.88),rgba(9,12,18,.6));border:1px solid rgba(255,255,255,.14);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;min-width:200px;backdrop-filter:blur(8px);box-shadow:0 0 26px rgba(57,210,192,.14)}
+    #speed{font-size:62px;font-weight:900;font-style:italic;line-height:.9;letter-spacing:-.05em;transition:color .2s;text-shadow:0 2px 14px rgba(0,0,0,.5)}
     .unit{font-size:11px;color:var(--dim);letter-spacing:.18em;font-weight:800;margin-top:6px;text-transform:uppercase}
     .row{display:flex;gap:18px;justify-content:space-between;font-size:13px;line-height:1.85;color:var(--dim);font-variant-numeric:tabular-nums}
     .row b{color:var(--ink)}
@@ -32,7 +32,7 @@
     #help{left:50%;bottom:16px;transform:translateX(-50%);padding:7px 16px;border-radius:999px;background:rgba(7,9,14,.46);border:1px solid rgba(255,255,255,.1);font-size:12px;color:rgba(233,237,244,.72);letter-spacing:.04em;backdrop-filter:blur(8px);white-space:nowrap}
     #help b{color:var(--accent)}
     #ribbon{position:absolute;z-index:3;left:50%;top:17px;transform:translateX(-50%);padding:7px 18px;border-radius:999px;border:1px solid rgba(240,200,96,.32);background:rgba(16,14,8,.58);color:var(--warn);font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;pointer-events:none}
-    #flash{position:absolute;z-index:7;left:50%;top:172px;transform:translateX(-50%) translateY(-8px);padding:8px 18px;border-radius:999px;background:rgba(7,9,14,.8);border:1px solid var(--accent);color:var(--ink);font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;backdrop-filter:blur(8px)}
+    #flash{position:absolute;z-index:7;left:50%;top:172px;transform:translateX(-50%) translateY(-8px);padding:9px 22px;border-radius:999px;background:rgba(7,9,14,.86);border:1.5px solid var(--accent);box-shadow:0 0 22px rgba(57,210,192,.35);color:var(--ink);font-size:15px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;backdrop-filter:blur(8px)}
     #flash.show{opacity:1;transform:translateX(-50%) translateY(0)}
     #lights{position:absolute;z-index:6;left:50%;top:62px;transform:translateX(-50%);display:flex;gap:13px;pointer-events:none}
     #lights i{width:32px;height:32px;border-radius:50%;background:#16191f;border:2px solid #2a2f3a;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
@@ -775,6 +775,8 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v64 — arcade pass 4/4: reactive HUD (accent dash, glowing speed, boost gold) */
+/* BUILD v63 — arcade pass 3/4: speed streaks overlay + boost FOV kick */
 /* BUILD v62 — arcade pass 2/4: saturated palette (sky, fog, grass, sun) */
 /* BUILD v61 — arcade pass 1/4: curvature-gated red/white corner kerbs (instanced, flush with road) */
 /* BUILD v60 — backdrop rings sized from circuit bounds: mountains/skyline always clear the track */
@@ -1813,7 +1815,7 @@ function updateCamera(dt){
   else if(view==='FAR'){desired=p.clone().addScaledVector(f,-32).addScaledVector(r,-player.steer*2).add(new THREE.Vector3(0,15,0)); look=p.clone().addScaledVector(f,40).add(new THREE.Vector3(0,3.4,0)); fovT=70+player.speed*.04;}
   else if(view==='CINEMATIC'){desired=p.clone().addScaledVector(f,-9).addScaledVector(r,7.5).add(new THREE.Vector3(0,3.0,0)); look=p.clone().addScaledVector(f,16).add(new THREE.Vector3(0,1.5,0)); fovT=55+player.speed*.03; follow=1-Math.pow(.05,dt);}
   else{desired=p.clone().addScaledVector(f,-14).addScaledVector(r,-player.steer*2).add(new THREE.Vector3(0,6.8,0)); look=p.clone().addScaledVector(f,32).add(new THREE.Vector3(0,2.6,0)); fovT=64+player.speed*.05;}
-  camPos.lerp(desired,follow); camTarget.lerp(look,follow); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.lookAt(camTarget); camera.fov=THREE.MathUtils.lerp(camera.fov,fovT,.05); camera.updateProjectionMatrix();
+  camPos.lerp(desired,follow); camTarget.lerp(look,follow); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.lookAt(camTarget); camera.fov=THREE.MathUtils.lerp(camera.fov,fovT+(player.boostT>0?7:0),.08);  // v63: boost slams the FOV out camera.updateProjectionMatrix();
 }
 
 function cycleView(){ const i=VIEW_ORDER.indexOf(view); view=VIEW_ORDER[(i+1)%VIEW_ORDER.length]; viewEl.textContent=VIEW_LABEL[view]; }
@@ -1914,7 +1916,35 @@ function createNet(){
 
 {const ob=document.getElementById('onlinebtn'); if(ob)ob.onclick=()=>{ location.hash=TRACK_ID+'/mp/'+mpCode(); location.reload(); };}
 if(MP_ROOM)net=createNet();
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
+/* v63: arcade speed streaks — screen-space radial lines above ~65% max speed, surging on boost */
+const fxc=document.createElement('canvas'); fxc.id='speedfx';
+fxc.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:4';
+document.body.appendChild(fxc);
+const fxx=fxc.getContext('2d');
+const fxLines=[];
+function speedFX(dt){
+  const W=innerWidth,H=innerHeight;
+  if(fxc.width!==W||fxc.height!==H){fxc.width=W;fxc.height=H;}
+  const frac=player.maxSpeed?player.speed/player.maxSpeed:0;
+  let k=Math.min(Math.max((frac-0.65)/0.35,0),1)*0.75; if(player.boostT>0)k=Math.min(k+0.5,1.2);
+  fxx.clearRect(0,0,W,H);
+  if(k<=0||race.state!=='racing'){fxLines.length=0;return;}
+  while(fxLines.length<30)fxLines.push({a:Math.random()*6.283,r:0.3+Math.random()*0.5,l:0.05+Math.random()*0.2,sp:1.5+Math.random()*2.5,o:0.5+Math.random()*0.5});
+  const cx=W/2,cy=H*0.46,RD=Math.hypot(W,H)/2;
+  fxx.lineCap='round';
+  for(const s of fxLines){
+    s.r+=s.sp*dt; s.o-=dt*0.9;
+    if(s.r>1.05||s.o<=0){s.a=Math.random()*6.283;s.r=0.3+Math.random()*0.35;s.l=0.05+Math.random()*0.2;s.sp=1.5+Math.random()*2.5;s.o=0.5+Math.random()*0.5;}
+    const r0=s.r*RD,r1=Math.min(s.r+s.l,1.15)*RD;
+    fxx.strokeStyle='rgba(235,244,255,'+(0.28*k*s.o).toFixed(3)+')';
+    fxx.lineWidth=1+2.2*k*s.r;
+    fxx.beginPath();
+    fxx.moveTo(cx+Math.cos(s.a)*r0,cy+Math.sin(s.a)*r0);
+    fxx.lineTo(cx+Math.cos(s.a)*r1,cy+Math.sin(s.a)*r1);
+    fxx.stroke();
+  }
+}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); speedFX(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':(_fr>0.92?'#39d2c0':''); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
