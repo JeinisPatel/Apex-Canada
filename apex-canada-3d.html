@@ -774,7 +774,8 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
-const DIFFS=[{n:'Rookie',mul:0.86},{n:'Pro',mul:1.06},{n:'Ace',mul:1.14}]; let diffIdx=1;
+/* BUILD v57 — steering assist rework: assist never replaces input */
+const DIFFS=[{n:'Rookie',mul:0.86,assist:0.94},{n:'Pro',mul:1.06,assist:0.985},{n:'Ace',mul:1.14,assist:1.0}]; let diffIdx=1;
 const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0};
 const timeEl=document.getElementById('rtime'), bestEl=document.getElementById('rbest'), drsEl=document.getElementById('drs'), tyreFill=document.getElementById('tyrefill');
 const lightsBox=document.getElementById('lights'), gomsg=document.getElementById('gomsg');
@@ -1722,7 +1723,7 @@ function updateCar(car,dt){
     const t0=curve.getTangentAt(car.progress).normalize(), t1=curve.getTangentAt((car.progress+.006)%1).normalize();
     const drift=-(t0.x*t1.z-t0.z*t1.x);                            // centrifugal — fast corners run you wide
     car.lateral+=car.steer*dt*(13+car.speed*.085)*grip + drift*car.speed*.7*dt;
-    car.lateral*=Math.pow(.82,dt);                                 // gentle self-centre; hold your own line
+    if(!(left||right))car.lateral*=Math.pow(DIFFS[diffIdx].assist,dt); // v57: assist re-centres only when hands-off — Rookie forgiving, Pro trace, Ace none; corners always demand steering
     if(Math.abs(car.lateral)>WALL){ car.lateral=Math.sign(car.lateral)*WALL; car.steer*=-.25; if(racing&&car.speed>car.maxSpeed*0.5)crashCar(car); else car.speed*=.55; }  // barrier scrape / crash
     if(_pitting){ car.lateral=THREE.MathUtils.lerp(car.lateral,WALL*0.72,1-Math.pow(.05,dt)); }
     else { const working=Math.abs(car.steer)*0.9+(throttle?0.45:0)+(boost?0.4:0)+(brake?0.3:0); const _pd=(car.speed*dt)/LAPDIV; car.tyre=Math.max(0.18,car.tyre-WEAR_RATE*_pd*(0.6+working)); }
