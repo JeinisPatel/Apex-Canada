@@ -308,8 +308,9 @@ let net=null;
 const circuit = CIRCUITS[TRACK_ID] || CIRCUITS.harbour;
 const raw = circuit.ctrl.slice();
 if(raw.length>2){const a=raw[0],b=raw[raw.length-1]; if(Math.hypot(a[0]-b[0],a[1]-b[1])<1) raw.pop();}  // drop duplicate closing point
-const SCALE = circuit.scale || 0.17;
-const LAPDIV = circuit.lapDiv || 1850;
+const TRACK_LEN = 1.4;                                        // v59: global lap-length factor (geometry + lap divisor together = same speed feel, longer laps)
+const SCALE = (circuit.scale || 0.17) * TRACK_LEN;
+const LAPDIV = (circuit.lapDiv || 1850) * TRACK_LEN;
 const FOGK = 0.17/SCALE;   // thin the fog on larger circuits so you can see across them
 { const SH=Math.round(240*Math.max(1,SCALE/0.17)); sun.shadow.camera.left=-SH; sun.shadow.camera.right=SH; sun.shadow.camera.top=SH; sun.shadow.camera.bottom=-SH; sun.shadow.camera.far=Math.max(620,SH*2.6); sun.shadow.camera.updateProjectionMatrix(); }
 let _mnx=1e9,_mxx=-1e9,_mny=1e9,_mxy=-1e9;
@@ -759,7 +760,7 @@ cars.push(player); scene.add(player.mesh);
 // standing grid just past the line — player starts P4 of 6
 const RIVALS=[[0xe8443a,0x6a1a14,.965],[0x3a7fe8,0x10316e,.975],[0xf0c860,0x7a5410,.958],[0x9a5ae8,0x3c1a6e,.970],[0x3ecf6e,0x0f5e2c,.953]];
 const WEAR_RATE=0.14, PIT_TIME=4.2;
-const PLAYER_SLOT=3, slotProg=s=>0.046-s*0.0072, slotLat=s=>((s%2)?1:-1)*ROAD_W*0.22;
+const PLAYER_SLOT=3, slotProg=s=>(0.046-s*0.0072)/TRACK_LEN, slotLat=s=>((s%2)?1:-1)*ROAD_W*0.22;  // v59: grid spacing constant in world units
 if(MODE==='quali'){
   Object.assign(player,{progress:0.02,speed:0,maxSpeed:120,lap:1,lateral:0,steer:0,last:0.02,total:0,gridPos:0,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false,damage:0,dmgMul:1,onFire:false,shake:0});
 }else{
@@ -774,6 +775,8 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v60 — backdrop rings sized from circuit bounds: mountains/skyline always clear the track */
+/* BUILD v59 — TRACK_LEN: all circuits 1.4x longer, sense of speed preserved */
 /* BUILD v58 — car-to-car contact (player vs AI bump physics) */
 /* BUILD v57 — steering assist rework: assist never replaces input */
 const DIFFS=[{n:'Rookie',mul:0.86,assist:0.94},{n:'Pro',mul:1.06,assist:0.985},{n:'Ace',mul:1.14,assist:1.0}]; let diffIdx=1;
@@ -1489,12 +1492,16 @@ function buildWorld(){
   // distant backdrop: mountain ranges, or a city skyline for flat urban circuits
   if(circuit.backdrop==='skyline'){
     const gc=[0x4a5e74,0x556a82,0x44566a,0x60708a,0x4f6378,0x6a7e96];
-    for(let i=0;i<32;i++){const a=i/32*Math.PI*2,R=560+((i*61)%160),hh=46+((i*89)%130),w=20+((i*23)%26);
+    const WORLD_R=Math.hypot(_mxx-_mnx,_mxy-_mny)*SCALE*0.5;                    // v60: half-diagonal of circuit bounds
+    for(let i=0;i<32;i++){const a=i/32*Math.PI*2,R=Math.max(560,WORLD_R+220)+((i*61)%160),hh=46+((i*89)%130),w=20+((i*23)%26);
       const stx=windowTex(gc[i%6],.28); stx.repeat.set(Math.max(2,Math.round(w/8)),Math.max(3,Math.round(hh/9)));
       const tw=new THREE.Mesh(new THREE.BoxGeometry(w,hh,w),new THREE.MeshStandardMaterial({map:stx,emissiveMap:stx,color:0xffffff,emissive:0x3a2e14,emissiveIntensity:.4,roughness:.45,metalness:.25}));
       tw.position.set(Math.cos(a)*R,hh/2,Math.sin(a)*R);tw.rotation.y=Math.random()*1.5;tw.castShadow=true;g.add(tw);}
   } else {
-    const RINGK=Math.min(Math.max(SCALE/0.255,1),1.4); for(let i=0;i<24;i++){const a=i/24*Math.PI*2,R=(720+((i*53)%180))*RINGK,hh=170+((i*97)%200),rad=110+((i*37)%80);
+    const RINGK=Math.min(Math.max(SCALE/0.255,1),1.4);
+    const WORLD_R=Math.hypot(_mxx-_mnx,_mxy-_mny)*SCALE*0.5;                    // v60: half-diagonal of circuit bounds
+    const RING_R=Math.max(720*RINGK, WORLD_R+420);                              // v60: ring always clears the track — mountains stay on the horizon
+    for(let i=0;i<24;i++){const a=i/24*Math.PI*2,R=RING_R+((i*53)%180),hh=170+((i*97)%200),rad=110+((i*37)%80);
       const M=mkMassif(Math.cos(a)*R,Math.sin(a)*R,hh,rad); M.position.y=hh/2-22; g.add(M);
       if(i%2===0){const a2=a+0.04,M2=mkMassif(Math.cos(a2)*(R+60),Math.sin(a2)*(R+60),hh*0.6,rad*0.72); M2.position.y=hh*0.3-22; g.add(M2);}}
     // black bears grazing the meadow below the peaks
