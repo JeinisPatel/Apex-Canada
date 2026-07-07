@@ -700,9 +700,9 @@ ANIM.push(()=>{ skyDome.position.copy(camera.position); skyMat.uniforms.top.valu
 
 /* ---------- time of day: T cycles Dawn -> Day -> Dusk -> Night ---------- */
 const TODS=[
-  {name:'DAWN', sky:0x9aa6c4, fog:0xb6b3bf, fogD:0.0052, hs:0xcdd2e0, hg:0x35302e, hi:0.95, sc:0xffd2a0, si:1.9,  sp:[-150,90,185],  lit:0.55},
-  {name:'DAY',  sky:0x86b6e6, fog:0xc3d6ea, fogD:0.0020, hs:0xdcecff, hg:0x4c5436, hi:1.30, sc:0xfff6e2, si:2.7,  sp:[-120,300,140], lit:0.10},
-  {name:'DUSK', sky:0x3a4360, fog:0x6f5564, fogD:0.0060, hs:0xc89ab2, hg:0x2a2622, hi:0.90, sc:0xff9a52, si:1.8,  sp:[165,70,-120],  lit:0.72},
+  {name:'DAWN', sky:0xa9b2dd, fog:0xd0b8c8, fogD:0.0046, hs:0xd6d8ea, hg:0x3a332f, hi:0.95, sc:0xffc890, si:2.1,  sp:[-150,90,185],  lit:0.55},
+  {name:'DAY',  sky:0x4ea2ee, fog:0xa8d2f4, fogD:0.0016, hs:0xdff0ff, hg:0x3f5c30, hi:1.30, sc:0xfff8e6, si:3.05, sp:[-120,300,140], lit:0.10},
+  {name:'DUSK', sky:0x474273, fog:0x8f5a72, fogD:0.0054, hs:0xd29cb8, hg:0x2a2622, hi:0.92, sc:0xff8836, si:2.05, sp:[165,70,-120],  lit:0.72},
   {name:'NIGHT',sky:0x07111f, fog:0x07111f, fogD:0.0052, hs:0xb6cae6, hg:0x1c2230, hi:1.00, sc:0xc7d6ec, si:1.70, sp:[-140,260,130], lit:1.00},
 ];
 const LITES=[];   // every glowing material (windows, Legislature bulbs) so they can fade by daylight
@@ -775,6 +775,8 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v62 — arcade pass 2/4: saturated palette (sky, fog, grass, sun) */
+/* BUILD v61 — arcade pass 1/4: curvature-gated red/white corner kerbs (instanced, flush with road) */
 /* BUILD v60 — backdrop rings sized from circuit bounds: mountains/skyline always clear the track */
 /* BUILD v59 — TRACK_LEN: all circuits 1.4x longer, sense of speed preserved */
 /* BUILD v58 — car-to-car contact (player vs AI bump physics) */
@@ -1066,12 +1068,26 @@ function makeLaneLines(){
   return g;
 }
 function makeKerbs(){
-  const g=new THREE.Group(), red=new THREE.MeshStandardMaterial({color:0xd93a32,roughness:.78}), white=new THREE.MeshStandardMaterial({color:0xe7e4dc,roughness:.78});
-  const box=new THREE.BoxGeometry(2.6,.24,.95);
-  for(let i=0;i<SAMPLES;i+=10){
-    const t=i/SAMPLES, p=curve.getPointAt(t), tan=curve.getTangentAt(t).normalize(), n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-    for(const side of [-1,1]){const k=new THREE.Mesh(box,(i/10)%2?red:white); k.position.copy(p).addScaledVector(n,side*(ROAD_W/2+.9)); k.position.y=roadY(t)+.3; k.rotation.y=Math.atan2(tan.x,tan.z); k.castShadow=true; k.receiveShadow=true; g.add(k);}
-  }
+  /* v61: continuous rumble strips only where the track curves — classic F1/arcade corner kerbs */
+  const g=new THREE.Group();
+  const turnAt=t=>{const a=curve.getTangentAt(t).normalize(),b=curve.getTangentAt((t+.012)%1).normalize();return a.x*b.z-a.z*b.x;};
+  const KERB_THRESH=0.012*LAPLEN/130;                                               // kerb corners tighter than ~130 world-unit radius (scale-invariant)
+  const corner=new Array(SAMPLES); for(let i=0;i<SAMPLES;i++)corner[i]=Math.abs(turnAt(i/SAMPLES))>=KERB_THRESH;
+  const spans=corner.slice(), dil=Math.max(2,Math.round(SAMPLES*0.008));            // lead-in/out either side of each corner
+  for(let i=0;i<SAMPLES;i++)if(corner[i])for(let d=1;d<=dil;d++){spans[(i+d)%SAMPLES]=true;spans[(i-d+SAMPLES)%SAMPLES]=true;}
+  const step=Math.max(1,Math.round(SAMPLES/(LAPLEN/3.4)));                          // one segment per ~3.4 world units
+  const idxs=[]; for(let i=0;i<SAMPLES;i+=step)if(spans[i])idxs.push(i);
+  const geo=new THREE.BoxGeometry(3.4,.16,1.15);
+  const redM=new THREE.MeshStandardMaterial({color:0xd93a32,roughness:.72}), whiteM=new THREE.MeshStandardMaterial({color:0xeceae2,roughness:.72});
+  let nRed=0; for(let k=0;k<idxs.length;k++)if(k%2===0)nRed++;
+  const imRed=new THREE.InstancedMesh(geo,redM,nRed*2), imWhite=new THREE.InstancedMesh(geo,whiteM,(idxs.length-nRed)*2);
+  imRed.castShadow=imWhite.castShadow=true; imRed.receiveShadow=imWhite.receiveShadow=true;
+  const dummy=new THREE.Object3D(); let ri=0,wi=0;
+  for(let k=0;k<idxs.length;k++){const t=idxs[k]/SAMPLES,p=curve.getPointAt(t),tan=curve.getTangentAt(t).normalize(),n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
+    for(const side of [-1,1]){dummy.position.copy(p).addScaledVector(n,side*(ROAD_W/2+.65)); dummy.position.y=roadY(t)+.13; dummy.rotation.set(0,Math.atan2(tan.x,tan.z),0); dummy.updateMatrix();
+      if(k%2===0)imRed.setMatrixAt(ri++,dummy.matrix); else imWhite.setMatrixAt(wi++,dummy.matrix);}}
+  imRed.instanceMatrix.needsUpdate=imWhite.instanceMatrix.needsUpdate=true;
+  g.add(imRed); g.add(imWhite);
   return g;
 }
 
@@ -1344,7 +1360,7 @@ function buildWorld(){
   function tooClose(x,z,m){const R=m||ROAD_W*1.35; for(let j=0;j<CL.length;j+=2){const dx=CL[j]-x,dz=CL[j+1]-z; if(dx*dx+dz*dz<R*R) return true;} return false;}
   // ground
   const _GP=2600*Math.max(1,SCALE/0.17);
-  const _grass=surfTex('#2f3a2a',[['rgba(64,86,48,0.5)',1100,3],['rgba(40,54,34,0.55)',800,3],['rgba(88,106,60,0.32)',450,2],['rgba(22,30,18,0.5)',300,4]]); _grass.repeat.set(_GP/24,_GP/24);
+  const _grass=surfTex('#33502c',[['rgba(84,128,56,0.5)',1100,3],['rgba(50,80,38,0.55)',800,3],['rgba(112,150,70,0.34)',450,2],['rgba(26,42,20,0.5)',300,4]]); _grass.repeat.set(_GP/24,_GP/24);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(_GP,_GP),new THREE.MeshStandardMaterial({color:0xffffff,map:_grass,roughness:.97}));
   ground.rotation.x=-Math.PI/2; ground.position.y=-.5; ground.receiveShadow=true; g.add(ground);
   // hillside embankment: drops from each road edge down to the ground so the road never floats
