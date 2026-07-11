@@ -34,6 +34,9 @@
     #ribbon{position:absolute;z-index:3;left:50%;top:17px;transform:translateX(-50%);padding:7px 18px;border-radius:999px;border:1px solid rgba(240,200,96,.32);background:rgba(16,14,8,.58);color:var(--warn);font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;pointer-events:none}
     #flash{position:absolute;z-index:7;left:50%;top:172px;transform:translateX(-50%) translateY(-8px);padding:9px 22px;border-radius:999px;background:rgba(7,9,14,.86);border:1.5px solid var(--accent);box-shadow:0 0 22px rgba(57,210,192,.35);color:var(--ink);font-size:15px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;backdrop-filter:blur(8px)}
     #flash.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    #radio{position:absolute;z-index:7;left:16px;bottom:140px;display:flex;align-items:center;gap:10px;padding:9px 16px 9px 12px;border-radius:10px;background:rgba(7,9,14,.88);border:1px solid rgba(255,255,255,.14);border-left:4px solid var(--accent);color:var(--ink);font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;pointer-events:none;opacity:0;transform:translateX(-12px);transition:opacity .3s,transform .3s;backdrop-filter:blur(8px);max-width:min(70vw,430px)}
+    #radio.show{opacity:1;transform:translateX(0)}
+    #radio b{font-size:10px;letter-spacing:.14em;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:2px 6px;flex-shrink:0}
     #lights{position:absolute;z-index:6;left:50%;top:62px;transform:translateX(-50%);display:flex;gap:13px;pointer-events:none}
     #lights i{width:32px;height:32px;border-radius:50%;background:#16191f;border:2px solid #2a2f3a;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
     #lights i.on{background:radial-gradient(circle at 50% 36%,#ff6f60,#cf1d12);border-color:#ff6f60;box-shadow:0 0 18px 3px rgba(226,58,54,.6),inset 0 2px 6px rgba(0,0,0,.25)}
@@ -173,6 +176,7 @@
   </div>
   <div id="ribbon">WebGL Prototype</div>
   <div id="flash"></div>
+  <div id="radio"><b>ENGINEER</b><span id="radioTxt"></span></div>
   <div id="drs">DRS</div>
   <div id="lights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="gomsg">GO</div>
@@ -900,6 +904,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v72 — race engineer radio: gaps, tyres, weather, positions, final lap */
 /* BUILD v71 — shadow follow-rig (player-anchored sun) + repair of v65 comment-swallowed FOV kick */
 /* BUILD v70 — particle FX: tyre smoke, kerb sparks, wet rooster-tail spray */
 /* BUILD v69 — car materials: clearcoat paint, steering wheels, glowing brake discs */
@@ -1083,6 +1088,45 @@ function stormUpdate(dt){
 // ---- transient toast ----
 const flashEl=document.getElementById('flash'); let _flashT=null;
 function flash(msg){ if(!flashEl)return; flashEl.textContent=msg; flashEl.classList.add('show'); clearTimeout(_flashT); _flashT=setTimeout(()=>flashEl.classList.remove('show'),1400); }
+/* ---------- BUILD v72: race engineer radio ---------- */
+const radioEl=document.getElementById('radio'), radioTxt=document.getElementById('radioTxt');
+let _radioHide=0;
+const RADIO={cool:{},gapT:14,prevWet:false,prevPos:0,ty50:false,ty30:false,finalLap:false,started:false,towT:0};
+function radioMsg(key,msg,cd){
+  const now=performance.now()*0.001;
+  if(RADIO.cool[key]&&now-RADIO.cool[key]<(cd||18))return;
+  RADIO.cool[key]=now;
+  if(!radioEl)return;
+  radioTxt.textContent=msg; radioEl.classList.add('show');
+  clearTimeout(_radioHide); _radioHide=setTimeout(()=>radioEl.classList.remove('show'),3600);
+}
+function radioTick(dt){
+  if(typeof MODE!=='undefined'&&MODE==='quali')return;
+  if(race.state==='countdown'&&RADIO.started){ RADIO.started=false; RADIO.ty50=false; RADIO.ty30=false; RADIO.finalLap=false; RADIO.prevPos=0; RADIO.gapT=14; RADIO.towT=0; }
+  if(race.state==='racing'&&!RADIO.started){ RADIO.started=true; RADIO.prevWet=(wxIdx>=2); radioMsg('go','LIGHTS OUT \u2014 GO GO GO',999); }
+  if(race.state!=='racing')return;
+  const wet=wxIdx>=2;
+  if(wet!==RADIO.prevWet){ RADIO.prevWet=wet; radioMsg('wx',wet?'RAIN COMING IN \u2014 GRIP IS DROPPING':'TRACK IS DRYING \u2014 PUSH ON',6); }
+  if(!RADIO.ty50&&player.tyre<0.5){ RADIO.ty50=true; radioMsg('t50','TYRES AT 50% \u2014 MANAGE THEM',6); }
+  if(!RADIO.ty30&&player.tyre<0.3){ RADIO.ty30=true; radioMsg('t30','TYRES ARE GONE \u2014 BOX BOX BOX',6); }
+  if(player.tyre>0.9){ RADIO.ty50=false; RADIO.ty30=false; }
+  if(!RADIO.finalLap&&player.lap===LAPS&&LAPS>1){ RADIO.finalLap=true; radioMsg('fl','FINAL LAP \u2014 BRING IT HOME',6); }
+  let pos=1; for(const c of cars){ if(c!==player&&c.total>player.total)pos++; }
+  if(RADIO.prevPos&&pos!==RADIO.prevPos){ radioMsg('pos',pos<RADIO.prevPos?('P'+pos+' \u2014 LOVELY MOVE'):('P'+pos+' \u2014 STAY CALM, GET HIM BACK'),7); }
+  RADIO.prevPos=pos;
+  if((player.tow||0)>0.6){ RADIO.towT+=dt; if(RADIO.towT>2.2){ radioMsg('tow','IN THE TOW \u2014 LINE HIM UP',22); RADIO.towT=0; } } else RADIO.towT=0;
+  RADIO.gapT-=dt;
+  if(RADIO.gapT<=0){ RADIO.gapT=20;
+    let ahead=null,ad=1e9,behind=null,bd=1e9;
+    for(const c of cars){ if(c===player)continue;
+      const d=c.total-player.total;
+      if(d>0&&d<ad){ ad=d; ahead=c; }
+      if(d<0&&-d<bd){ bd=-d; behind=c; } }
+    const sp=Math.max(player.speed,20);
+    if(ahead){ const gs=ad*LAPDIV/sp; if(gs<4) radioMsg('gapA','GAP AHEAD '+gs.toFixed(1)+'s'+(gs<1.0?' \u2014 DRS IN RANGE':' \u2014 CLOSE IT DOWN'),1); }
+    else if(behind){ const gs=bd*LAPDIV/sp; if(gs<3) radioMsg('gapB','GAP BEHIND '+gs.toFixed(1)+'s \u2014 DEFEND THE INSIDE',1); }
+  }
+}
 buildRain();
 addEventListener('keydown', e => { const k=e.key.toLowerCase(); keys.add(k);
   if(k==='v') cycleView();
@@ -2128,7 +2172,7 @@ function dynWX(dt){
   const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
   if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
