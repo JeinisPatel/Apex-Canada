@@ -312,6 +312,78 @@ function postRender(){
     postPass(postComp,null);
   }catch(e){ postFailed=true; try{ renderer.setRenderTarget(null); }catch(e2){} renderer.render(scene,camera); }
 }
+
+/* ---------- particle FX engine (BUILD v70): shared point-sprite pools ---------- */
+function mkPFX(N,opt){
+  const geo=new THREE.BufferGeometry();
+  const pos=new Float32Array(N*3), life=new Float32Array(N);
+  for(let i=0;i<N;i++) pos[i*3+1]=-9999;
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('life',new THREE.BufferAttribute(life,1));
+  const mat=new THREE.ShaderMaterial({
+    uniforms:{c0:{value:new THREE.Color(opt.c0)},c1:{value:new THREE.Color(opt.c1)},s0:{value:opt.s0},s1:{value:opt.s1},aMax:{value:opt.a},pr:{value:(renderer.getPixelRatio?renderer.getPixelRatio():1)}},
+    vertexShader:'attribute float life; varying float vL; uniform float s0; uniform float s1; uniform float pr; void main(){ vL=life; vec4 mv=modelViewMatrix*vec4(position,1.0); float s=mix(s1,s0,life); gl_PointSize=s*pr*(160.0/max(1.0,-mv.z)); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'uniform vec3 c0; uniform vec3 c1; uniform float aMax; varying float vL; void main(){ if(vL<=0.0)discard; vec2 d=gl_PointCoord-0.5; float r2=dot(d,d); if(r2>0.25)discard; float a=smoothstep(0.25,0.02,r2)*vL*aMax; gl_FragColor=vec4(mix(c1,c0,vL),a); }',
+    transparent:true,depthWrite:false,blending:opt.add?THREE.AdditiveBlending:THREE.NormalBlending,fog:false});
+  const pts=new THREE.Points(geo,mat); pts.frustumCulled=false; pts.renderOrder=8; scene.add(pts);
+  const vel=new Float32Array(N*3), span=new Float32Array(N); let head=0;
+  return {
+    emit(x,y,z,vx,vy,vz,ls){ const i=head; head=(head+1)%N;
+      pos[i*3]=x; pos[i*3+1]=y; pos[i*3+2]=z;
+      vel[i*3]=vx; vel[i*3+1]=vy; vel[i*3+2]=vz;
+      span[i]=ls; life[i]=1; },
+    update(dt){ const g=opt.grav||0, dr=Math.pow(opt.drag||1,dt*60);
+      for(let i=0;i<N;i++){ if(life[i]<=0)continue;
+        life[i]-=dt/span[i];
+        if(life[i]<=0){ life[i]=0; pos[i*3+1]=-9999; continue; }
+        vel[i*3]*=dr; vel[i*3+2]*=dr; vel[i*3+1]=vel[i*3+1]*dr-g*dt;
+        pos[i*3]+=vel[i*3]*dt; pos[i*3+1]+=vel[i*3+1]*dt; pos[i*3+2]+=vel[i*3+2]*dt; }
+      geo.attributes.position.needsUpdate=true; geo.attributes.life.needsUpdate=true; }
+  };
+}
+const PFX_SMOKE=mkPFX(240,{c0:0x9aa0a8,c1:0x3c4149,s0:1.4,s1:5.4,a:0.34,grav:-0.8,drag:0.90});
+const PFX_SPARK=mkPFX(180,{c0:0xffe9b0,c1:0xff6a14,s0:1.1,s1:0.4,a:0.95,grav:14,drag:0.985,add:true});
+const PFX_SPRAY=mkPFX(300,{c0:0xdfe9f2,c1:0x9fb4c6,s0:1.0,s1:4.8,a:0.30,grav:6,drag:0.94});
+const _pw=new THREE.Vector3();
+function fxParticles(dt){
+  const wet=wxIdx>=2;
+  for(const car of cars){
+    if(!car.mesh)continue;
+    const spd=car.speed||0;
+    if(spd<8)continue;
+    const ry=car.mesh.rotation.y, fwx=Math.sin(ry), fwz=Math.cos(ry);
+    /* rooster tails in the wet: every car, both rear wheels */
+    if(wet&&spd>34){
+      const n=Math.min(4,Math.max(1,Math.round(spd*dt*0.16)));
+      for(let k=0;k<n;k++){ const sx=(k%2===0)?-2.2:2.2;
+        _pw.set(sx,0.55,-2.9); car.mesh.localToWorld(_pw);
+        PFX_SPRAY.emit(_pw.x+(Math.random()-.5)*0.5,_pw.y+Math.random()*0.3,_pw.z+(Math.random()-.5)*0.5,
+          -fwx*spd*0.10+(Math.random()-.5)*2.2, 2.6+Math.random()*3.4, -fwz*spd*0.10+(Math.random()-.5)*2.2,
+          0.55+Math.random()*0.35); } }
+    if(!car.isPlayer)continue;
+    const HALF=ROAD_W/2, aLat=Math.abs(car.lateral);
+    const braking=(keys.has('arrowdown')||keys.has('s'))&&spd>45;
+    const sliding=Math.abs(car.steer)>0.55&&spd>car.maxSpeed*0.5;
+    const grass=aLat>HALF;
+    /* tyre smoke: slides, heavy braking, grass excursions */
+    if(sliding||braking||grass){
+      const n=grass?3:2;
+      for(let k=0;k<n;k++){ const sx=(k%2===0)?-2.2:2.2;
+        _pw.set(sx,0.45,-2.7); car.mesh.localToWorld(_pw);
+        PFX_SMOKE.emit(_pw.x+(Math.random()-.5)*0.6,_pw.y,_pw.z+(Math.random()-.5)*0.6,
+          -fwx*spd*0.05+(Math.random()-.5)*1.6, 0.8+Math.random()*1.2, -fwz*spd*0.05+(Math.random()-.5)*1.6,
+          0.7+Math.random()*0.5); } }
+    /* kerb sparks: riding the painted edge at speed */
+    if(aLat>HALF*0.8&&aLat<=HALF&&spd>50){
+      const sx=Math.sign(car.lateral)*2.3;
+      for(let k=0;k<2;k++){
+        _pw.set(sx,0.12,-1.2-Math.random()*2.4); car.mesh.localToWorld(_pw);
+        PFX_SPARK.emit(_pw.x,_pw.y,_pw.z,
+          -fwx*spd*0.16+(Math.random()-.5)*4.5, 1.2+Math.random()*2.6, -fwz*spd*0.16+(Math.random()-.5)*4.5,
+          0.22+Math.random()*0.22); } }
+  }
+  PFX_SMOKE.update(dt); PFX_SPARK.update(dt); PFX_SPRAY.update(dt);
+}
 // gradient sky dome — zenith/horizon track the active time-of-day + weather palette
 const skyMat=new THREE.ShaderMaterial({
   uniforms:{ top:{value:new THREE.Color(0x6f9ed0)}, bot:{value:new THREE.Color(0xc3d6ea)}, exph:{value:0.6} },
@@ -819,6 +891,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v70 — particle FX: tyre smoke, kerb sparks, wet rooster-tail spray */
 /* BUILD v69 — car materials: clearcoat paint, steering wheels, glowing brake discs */
 /* BUILD v68 — post-processing: hand-rolled bloom + vignette + speed chromatic aberration */
 /* BUILD v67 — fallible AI + dynamic time of day + dynamic weather (wet grip) */
@@ -2045,7 +2118,7 @@ function dynWX(dt){
   const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
   if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
