@@ -39,6 +39,16 @@
     #radio b{font-size:10px;letter-spacing:.14em;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:2px 6px;flex-shrink:0}
     body.touch #radio{left:10px;bottom:112px;padding:6px 10px 6px 8px;gap:7px;font-size:10.5px;border-radius:8px;border-left-width:3px;max-width:60vw}
     body.touch #radio b{font-size:8px;padding:1px 4px}
+    #tower{position:absolute;z-index:6;right:14px;top:120px;display:flex;flex-direction:column;gap:3px;pointer-events:none;font-weight:800;font-size:12px;letter-spacing:.05em}
+    .trow{display:flex;align-items:center;gap:7px;background:rgba(7,9,14,.78);border:1px solid rgba(255,255,255,.10);border-radius:7px;padding:4px 9px 4px 6px;min-width:150px;backdrop-filter:blur(6px)}
+    .trow .tp{width:16px;text-align:center;color:#aeb6c2}
+    .trow .tc{width:4px;height:14px;border-radius:2px}
+    .trow .tt{width:34px}
+    .trow .tg{margin-left:auto;color:#8fa0b0;font-variant-numeric:tabular-nums}
+    .trow.me{border-color:var(--accent);box-shadow:0 0 12px rgba(57,210,192,.25)}
+    .trow.me .tg{color:var(--ink)}
+    body.touch #tower{right:8px;top:96px;font-size:10px;gap:2px}
+    body.touch .trow{min-width:118px;padding:3px 7px 3px 5px;gap:5px}
     #lights{position:absolute;z-index:6;left:50%;top:62px;transform:translateX(-50%);display:flex;gap:13px;pointer-events:none}
     #lights i{width:32px;height:32px;border-radius:50%;background:#16191f;border:2px solid #2a2f3a;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
     #lights i.on{background:radial-gradient(circle at 50% 36%,#ff6f60,#cf1d12);border-color:#ff6f60;box-shadow:0 0 18px 3px rgba(226,58,54,.6),inset 0 2px 6px rgba(0,0,0,.25)}
@@ -179,6 +189,7 @@
   <div id="ribbon">WebGL Prototype</div>
   <div id="flash"></div>
   <div id="radio"><b>ENGINEER</b><span id="radioTxt"></span></div>
+  <div id="tower"></div>
   <div id="drs">DRS</div>
   <div id="lights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="gomsg">GO</div>
@@ -887,9 +898,10 @@ const TYRETEX=tyreTexture();
 
 const LAPS=3;
 const player = createCar(0x39d2c0, 0x0e5a52, true);
-cars.push(player); scene.add(player.mesh);
+cars.push(player); scene.add(player.mesh); player.tag='PAT'; player.liv=0x39d2c0;
 // standing grid just past the line — player starts P4 of 6
 const RIVALS=[[0xe8443a,0x6a1a14,.965],[0x3a7fe8,0x10316e,.975],[0xf0c860,0x7a5410,.958],[0x9a5ae8,0x3c1a6e,.970],[0x3ecf6e,0x0f5e2c,.953]];
+const RTAGS=['TRE','SIN','BOU','OKA','VIL'];
 const WEAR_RATE=0.14, PIT_TIME=4.2;
 const PLAYER_SLOT=3, slotProg=s=>(0.046-s*0.0072)/TRACK_LEN, slotLat=s=>((s%2)?1:-1)*ROAD_W*0.22;  // v59: grid spacing constant in world units
 if(MODE==='quali'){
@@ -899,13 +911,14 @@ if(MODE==='quali'){
   for(let s=0;s<6;s++){
     if(s===PLAYER_SLOT){ Object.assign(player,{progress:slotProg(s),speed:0,maxSpeed:120,lap:1,lateral:slotLat(s),steer:0,last:slotProg(s),total:0,gridPos:s,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false,damage:0,dmgMul:1,onFire:false,shake:0}); }
     else if(!MP_ROOM){ const[a,b,pace]=RIVALS[_ri++]; const r=createCar(a,b,false);
-      Object.assign(r,{progress:slotProg(s),speed:0,maxSpeed:113,pace,lap:1,lateral:slotLat(s),steer:0,last:slotProg(s),total:0,gridPos:s,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false,damage:0,dmgMul:1,onFire:false,shake:0});
+      Object.assign(r,{progress:slotProg(s),speed:0,maxSpeed:113,pace,tag:RTAGS[(_ri-1)%RTAGS.length],liv:a,lap:1,lateral:slotLat(s),steer:0,last:slotProg(s),total:0,gridPos:s,tyre:1,pitT:0,pitStops:0,pitCool:0,wantPit:false,damage:0,dmgMul:1,onFire:false,shake:0});
       scene.add(r.mesh); cars.push(r); }
   }
 }
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v74 — live timing tower: positions, tags, intervals, pit status */
 /* BUILD v73 — touch layout: compact engineer radio on phones */
 /* BUILD v72 — race engineer radio: gaps, tyres, weather, positions, final lap */
 /* BUILD v71 — shadow follow-rig (player-anchored sun) + repair of v65 comment-swallowed FOV kick */
@@ -1091,6 +1104,35 @@ function stormUpdate(dt){
 // ---- transient toast ----
 const flashEl=document.getElementById('flash'); let _flashT=null;
 function flash(msg){ if(!flashEl)return; flashEl.textContent=msg; flashEl.classList.add('show'); clearTimeout(_flashT); _flashT=setTimeout(()=>flashEl.classList.remove('show'),1400); }
+/* ---------- BUILD v74: live timing tower ---------- */
+const towerEl=document.getElementById('tower');
+let _twT=0, _twRows=null;
+function towerBuild(){ if(!towerEl)return; towerEl.innerHTML=''; _twRows=[];
+  for(let i=0;i<cars.length;i++){ const d=document.createElement('div'); d.className='trow';
+    d.innerHTML='<span class="tp"></span><span class="tc"></span><span class="tt"></span><span class="tg"></span>';
+    towerEl.appendChild(d); _twRows.push(d); } }
+function towerTick(dt){
+  if(!towerEl)return;
+  const hide=(typeof MODE!=='undefined'&&MODE==='quali')||(typeof MP_ROOM!=='undefined'&&MP_ROOM)||cars.length<2||race.state==='lobby';
+  towerEl.style.display=hide?'none':'flex';
+  if(hide)return;
+  _twT-=dt; if(_twT>0)return; _twT=0.25;
+  if(!_twRows||_twRows.length!==cars.length)towerBuild();
+  const order=cars.slice().sort((x,y)=>y.total-x.total);
+  for(let i=0;i<order.length;i++){ const c=order[i], d=_twRows[i];
+    d.classList.toggle('me',!!c.isPlayer);
+    const sp=d.children;
+    sp[0].textContent=(i+1);
+    sp[1].style.background='#'+((c.liv||0x888888).toString(16).padStart(6,'0'));
+    sp[2].textContent=c.tag||'CAR';
+    let g;
+    if(c.pitT>0)g='PIT';
+    else if(i===0)g='LEADER';
+    else { const dTot=order[i-1].total-c.total;
+      if(dTot>=1)g='+'+Math.floor(dTot)+' LAP'+(dTot>=2?'S':'');
+      else { const gs=dTot*LAPDIV/Math.max(c.speed,25); g=gs>99?'+99s':'+'+gs.toFixed(1); } }
+    sp[3].textContent=g; }
+}
 /* ---------- BUILD v72: race engineer radio ---------- */
 const radioEl=document.getElementById('radio'), radioTxt=document.getElementById('radioTxt');
 let _radioHide=0;
@@ -2175,7 +2217,7 @@ function dynWX(dt){
   const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
   if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); towerTick(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
