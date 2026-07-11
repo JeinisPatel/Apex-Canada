@@ -398,12 +398,21 @@ sun.position.set(-140, 260, 130);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 620;
-sun.shadow.camera.left = -240;
-sun.shadow.camera.right = 240;
-sun.shadow.camera.top = 240;
-sun.shadow.camera.bottom = -240;
+sun.shadow.camera.far = 820;
+sun.shadow.camera.left = -150;
+sun.shadow.camera.right = 150;
+sun.shadow.camera.top = 150;
+sun.shadow.camera.bottom = -150;
+sun.shadow.bias = -0.0004;
 scene.add(sun);
+scene.add(sun.target);
+/* BUILD v71: sun direction for the player-following shadow rig */
+const SUN_DIR = new THREE.Vector3(-140, 260, 130).normalize();
+function sunFollow(){
+  if(typeof player==='undefined'||!player.mesh)return;
+  sun.target.position.copy(player.mesh.position);
+  sun.position.copy(player.mesh.position).addScaledVector(SUN_DIR,430);
+}
 
 /* ---------- Vancouver Island circuits (ctrl points ported from the v56 career build) ---------- */
 const CIRCUITS = {
@@ -828,7 +837,7 @@ let todIdx=1;
 function applyTOD(i){ const t=TODS[((i%TODS.length)+TODS.length)%TODS.length]; todIdx=TODS.indexOf(t);
   scene.background.setHex(t.sky); scene.fog.color.setHex(t.fog); scene.fog.density=t.fogD*FOGK;
   hemi.color.setHex(t.hs); hemi.groundColor.setHex(t.hg); hemi.intensity=t.hi;
-  sun.color.setHex(t.sc); sun.intensity=t.si; sun.position.set(t.sp[0],t.sp[1],t.sp[2]);
+  sun.color.setHex(t.sc); sun.intensity=t.si; sun.position.set(t.sp[0],t.sp[1],t.sp[2]); SUN_DIR.copy(sun.position).normalize();
   for(const L of LITES) L.mat.emissiveIntensity=L.base*t.lit;
 }
 applyTOD(1);   // start in daylight
@@ -891,6 +900,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v71 — shadow follow-rig (player-anchored sun) + repair of v65 comment-swallowed FOV kick */
 /* BUILD v70 — particle FX: tyre smoke, kerb sparks, wet rooster-tail spray */
 /* BUILD v69 — car materials: clearcoat paint, steering wheels, glowing brake discs */
 /* BUILD v68 — post-processing: hand-rolled bloom + vignette + speed chromatic aberration */
@@ -1978,7 +1988,7 @@ function updateCamera(dt){
   else if(view==='FAR'){desired=p.clone().addScaledVector(f,-32).addScaledVector(r,-player.steer*3.4).add(new THREE.Vector3(0,15,0)); look=p.clone().addScaledVector(f,40).add(new THREE.Vector3(0,3.4,0)); fovT=70+player.speed*.04;}
   else if(view==='CINEMATIC'){desired=p.clone().addScaledVector(f,-9).addScaledVector(r,7.5).add(new THREE.Vector3(0,3.0,0)); look=p.clone().addScaledVector(f,16).add(new THREE.Vector3(0,1.5,0)); fovT=55+player.speed*.03; follow=1-Math.pow(.05,dt);}
   else{desired=p.clone().addScaledVector(f,-14).addScaledVector(r,-player.steer*3.4).add(new THREE.Vector3(0,6.8,0)); look=p.clone().addScaledVector(f,32).add(new THREE.Vector3(0,2.6,0)); fovT=64+player.speed*.05;}
-  camPos.lerp(desired,follow); camTarget.lerp(look,follow); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.up.set(Math.sin(-(player.roll||0)*0.55),1,0).normalize(); camera.lookAt(camTarget);  // v65: camera banks subtly with the car camera.fov=THREE.MathUtils.lerp(camera.fov,fovT+(player.boostT>0?7:0),.08);  // v63: boost slams the FOV out camera.updateProjectionMatrix();
+  camPos.lerp(desired,follow); camTarget.lerp(look,follow); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.up.set(Math.sin(-(player.roll||0)*0.55),1,0).normalize(); camera.lookAt(camTarget); /* v65: camera banks subtly */ camera.fov=THREE.MathUtils.lerp(camera.fov,fovT+(player.boostT>0?7:0),.08); /* v63: boost FOV kick (restored in v71) */ camera.updateProjectionMatrix(); sunFollow();
 }
 
 function cycleView(){ const i=VIEW_ORDER.indexOf(view); view=VIEW_ORDER[(i+1)%VIEW_ORDER.length]; viewEl.textContent=VIEW_LABEL[view]; }
