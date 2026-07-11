@@ -958,6 +958,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v81 — ghost car: best qualifying lap recorded, persisted, replayed translucent */
 /* BUILD v80 — compound button relabel (avoid M=mute collision) + Y key cycles tyres */
 /* BUILD v79 — tyre compounds: soft/medium/hard with pace and wear trade-offs */
 /* BUILD v78 — launch discipline (jump-start power cut, reaction bonus) + podium confetti */
@@ -1009,7 +1010,7 @@ function onLapComplete(car){
   if(car!==player)return;
   if(MODE!=='quali'&&race.state==='racing'&&car.lap<=LAPS){ applyTOD(todIdx+1); applyWX(wxIdx); flash('TIME: '+TODS[todIdx].name); }  // v67: the race day rolls on
   if(MODE==='quali'){
-    if(race.phase==='out'){ race.phase='hot'; race.clock=0; race.lapStart=0; if(typeof flash==='function')flash('HOT LAP \u2014 GO'); }
+    if(race.phase==='out'){ race.phase='hot'; race.clock=0; race.lapStart=0; if(typeof flash==='function')flash('HOT LAP \u2014 GO'); ghostHotStart(); }
     else if(race.phase==='hot'){ race.hot=race.clock; finishRace(); }
     return;
   }
@@ -1021,12 +1022,17 @@ function finishRace(){
   if(race.state==='finished')return; race.state='finished';
   const box=document.getElementById('results'); if(!box)return;
   if(MODE==='quali'){
+    let _gsaved=false;
+    if(ghRec&&ghRec.length>3&&(!ghData||race.hot<ghData.time)){
+      try{ localStorage.setItem(GH_KEY,JSON.stringify({time:+race.hot.toFixed(3),s:ghRec})); _gsaved=true; ghData=ghostLoad(); }catch(e){}
+    }
+    ghRec=null;
     const eye=document.querySelector('.reye'), stats=document.querySelectorAll('.rstats > div'), again=document.getElementById('btn-again');
     const base=BASELAP[TRACK_ID], hot=race.hot, delta=(base!=null)?hot-base:null;
     if(eye)eye.textContent='Flying Lap';
     document.getElementById('res-pos').textContent=fmt(hot);
     let grade=''; if(delta!=null) grade = delta<=-0.4?'POLE PACE' : delta<=0.4?'FRONT-ROW PACE' : delta<=1.2?'MIDFIELD' : 'WORK TO DO';
-    document.getElementById('res-sub').textContent='Qualifying \u00b7 '+circuit.name+(grade?' \u00b7 '+grade:'');
+    document.getElementById('res-sub').textContent='Qualifying \u00b7 '+circuit.name+(grade?' \u00b7 '+grade:'')+(_gsaved?' \u00b7 NEW GHOST SAVED':'');
     if(stats[0]){ stats[0].querySelector('span').textContent='Reference'; document.getElementById('res-total').textContent=(base!=null)?fmt(base):'--'; }
     if(stats[1]){ stats[1].querySelector('span').textContent='Delta'; const de=document.getElementById('res-best'); de.textContent=(delta!=null)?((delta>=0?'+':'')+delta.toFixed(2)+'s'):'--'; de.style.color=(delta!=null)?(delta<=0?'var(--accent)':'var(--warn)'):''; }
     document.getElementById('res-splits').innerHTML='';
@@ -1165,6 +1171,41 @@ function stormUpdate(dt){
 // ---- transient toast ----
 const flashEl=document.getElementById('flash'); let _flashT=null;
 function flash(msg){ if(!flashEl)return; flashEl.textContent=msg; flashEl.classList.add('show'); clearTimeout(_flashT); _flashT=setTimeout(()=>flashEl.classList.remove('show'),1400); }
+/* ---------- BUILD v81: ghost car (qualifying) ---------- */
+const GH_KEY='apexGhost_'+TRACK_ID;
+let ghost=null, ghData=null, ghRec=null, ghT=0, ghIdx=0;
+function ghostLoad(){ try{ const d=JSON.parse(localStorage.getItem(GH_KEY)); if(d&&d.time&&d.s&&d.s.length>3)return d; }catch(e){} return null; }
+function ghostInit(){
+  ghData=ghostLoad();
+  if(!ghData||ghost)return;
+  const g=createCar(0x9fd8ff,0x9fd8ff,false);
+  const gm=new THREE.MeshBasicMaterial({color:0x9fd8ff,transparent:true,opacity:0.30,depthWrite:false});
+  g.mesh.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; } });
+  g.mesh.renderOrder=6;
+  scene.add(g.mesh);
+  ghost=g; ghost.mesh.visible=false;
+}
+function ghostHotStart(){
+  ghRec=[]; ghT=0; ghIdx=0;
+  ghostInit();
+  if(ghost&&ghData){ ghost.mesh.visible=true; setTimeout(()=>flash('GHOST ON TRACK \u2014 BEST '+fmt(ghData.time)),1300); }
+}
+function ghostTick(dt){
+  if(typeof MODE==='undefined'||MODE!=='quali'||race.phase!=='hot'||race.state==='finished'){ if(ghost)ghost.mesh.visible=false; return; }
+  if(ghRec){ ghT+=dt; if(ghT>=0.1){ ghT-=0.1; ghRec.push([+race.clock.toFixed(3),+player.progress.toFixed(5),+player.lateral.toFixed(2)]); } }
+  if(!ghost||!ghData)return;
+  const s=ghData.s, t=race.clock;
+  if(t>s[s.length-1][0]+0.2){ ghost.mesh.visible=false; return; }
+  ghost.mesh.visible=true;
+  while(ghIdx<s.length-2&&s[ghIdx+1][0]<=t)ghIdx++;
+  const a=s[ghIdx], b=s[Math.min(ghIdx+1,s.length-1)];
+  const f=(b[0]>a[0])?Math.min(1,Math.max(0,(t-a[0])/(b[0]-a[0]))):0;
+  let pg=a[1]+(((b[1]-a[1]+1.5)%1)-0.5)*f; pg=(pg+1)%1;
+  const lat=a[2]+(b[2]-a[2])*f;
+  const p=curve.getPointAt(pg), tn=curve.getTangentAt(pg).normalize(), n=new THREE.Vector3(-tn.z,0,tn.x).normalize();
+  ghost.mesh.position.set(p.x+n.x*lat, roadY(pg)+.30, p.z+n.z*lat);
+  ghost.mesh.rotation.y=Math.atan2(tn.x,tn.z);
+}
 /* ---------- BUILD v79: compound selector ---------- */
 function cycleCompound(){
   compIdx=(compIdx+1)%COMPOUNDS.length;
@@ -2353,7 +2394,7 @@ function dynWX(dt){
   const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
   if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); towerTick(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background=CMP(player).col;} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); towerTick(dt); ghostTick(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background=CMP(player).col;} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
