@@ -67,9 +67,9 @@
     #gomsg{position:absolute;z-index:6;left:50%;top:46%;transform:translate(-50%,-50%) scale(.6);font-weight:900;font-style:italic;font-size:clamp(64px,13vw,128px);letter-spacing:.04em;color:var(--accent);text-shadow:0 6px 40px rgba(57,210,192,.5);opacity:0;pointer-events:none}
     #gomsg.show{animation:goFx 1s ease forwards}
     @keyframes goFx{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.22)}}
-    #results,#pause{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(6,9,14,.8),rgba(6,9,14,.95));backdrop-filter:blur(7px)}
+    #results,#pause,#season{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(6,9,14,.8),rgba(6,9,14,.95));backdrop-filter:blur(7px)}
     #pause{z-index:11}
-    #results[hidden],#pause[hidden],#mp-lobby[hidden]{display:none}
+    #results[hidden],#pause[hidden],#season[hidden],#mp-lobby[hidden]{display:none}
     .rcard{width:min(450px,90vw);background:linear-gradient(180deg,rgba(20,26,36,.96),rgba(12,16,22,.96));border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--accent);border-radius:14px;padding:30px;text-align:center;box-shadow:0 30px 80px -30px #000}
     .reye{font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);font-weight:800}
     .rpos{font-size:74px;font-weight:900;font-style:italic;line-height:1;margin:4px 0 2px}
@@ -192,7 +192,7 @@
   </div>
   <button id="menubtn">❚❚ Menu</button>
   <div class="hud" id="modes">
-    <button data-m="race">Race</button><button data-m="quali">Quali</button><button id="diffbtn" class="diff">AI · Pro</button><button id="pitbtn" class="diff pit">PIT</button><button id="onlinebtn" class="diff online">ONLINE</button>
+    <button data-m="race">Race</button><button data-m="quali">Quali</button><button id="diffbtn" class="diff">AI · Pro</button><button id="pitbtn" class="diff pit">PIT</button><button id="onlinebtn" class="diff online">ONLINE</button><button id="seasonbtn" class="diff">SEASON</button>
   </div>
   <div class="hud" id="tracks">
     <button data-t="harbour">Harbour</button><button data-t="gorge">Gorge</button><button data-t="sidney">Sidney</button><button data-t="malahat">Malahat</button><button data-t="cordova">Cordova</button><button data-t="stampede">Calgary</button><button data-t="exhibition">Toronto</button><button data-t="banff">Banff</button>
@@ -232,6 +232,18 @@
       <div class="rbtns">
         <button id="btn-again" class="rbtn primary">Race again</button>
         <button id="btn-circuits" class="rbtn">Change circuit</button>
+      </div>
+    </div>
+  </div>
+  <div id="season" hidden>
+    <div class="rcard">
+      <div class="reye">Season Standings</div>
+      <div class="rsub" id="season-sub"></div>
+      <div id="season-rows" class="champbox" style="border-top:none;padding-top:2px;margin-top:6px"></div>
+      <div class="rsub" id="season-rounds" style="margin-top:10px;font-size:11px;opacity:.75"></div>
+      <div class="rbtns">
+        <button id="season-close" class="rbtn primary">Close</button>
+        <button id="season-reset" class="rbtn">Reset season</button>
       </div>
     </div>
   </div>
@@ -934,6 +946,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v77 — season standings overlay from main menu */
 /* BUILD v76 — championship mode: persistent season points + standings on results card */
 /* BUILD v75 — glass-mode timing tower + radio, compact touch sizing */
 /* BUILD v74 — live timing tower: positions, tags, intervals, pit status */
@@ -1155,6 +1168,25 @@ function chRender(d,got){
 }
 (function(){ const b=document.getElementById('champ-reset');
   if(b)b.addEventListener('click',()=>{ chSave({pts:{},rounds:[]}); chRender(chLoad(),0); }); })();
+/* ---------- BUILD v77: season standings overlay ---------- */
+(function(){
+  const btn=document.getElementById('seasonbtn'), ov=document.getElementById('season');
+  if(!btn||!ov)return;
+  const rows=document.getElementById('season-rows'), sub=document.getElementById('season-sub'), rl=document.getElementById('season-rounds');
+  function render(){
+    const d=chLoad();
+    const list=Object.entries(d.pts).sort((a,b)=>b[1]-a[1]);
+    rows.innerHTML='';
+    if(!list.length)rows.innerHTML='<div class="chrow"><em>No points yet \u2014 go racing</em></div>';
+    list.forEach(([t,p],i)=>{ const r=document.createElement('div'); r.className='chrow'+(t==='PAT'?' me':'');
+      r.innerHTML='<span>'+(i+1)+'</span><b>'+t+'</b><em>'+p+' PTS</em>'; rows.appendChild(r); });
+    sub.textContent=d.rounds.length?('Round '+d.rounds.length):'Season not started';
+    rl.textContent=d.rounds.length?d.rounds.map(r=>((CIRCUITS[r.t]&&CIRCUITS[r.t].name)||r.t).toUpperCase()+' P'+r.p).join(' \u00b7 '):'';
+  }
+  btn.addEventListener('click',()=>{ render(); ov.hidden=false; });
+  const close=document.getElementById('season-close'); if(close)close.addEventListener('click',()=>{ ov.hidden=true; });
+  const rst=document.getElementById('season-reset'); if(rst)rst.addEventListener('click',()=>{ chSave({pts:{},rounds:[]}); render(); });
+})();
 /* ---------- BUILD v74: live timing tower ---------- */
 const towerEl=document.getElementById('tower');
 let _twT=0, _twRows=null;
