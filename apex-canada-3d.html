@@ -52,6 +52,14 @@
     body.touch .trow .tp{width:11px}
     body.touch .trow .tc{height:10px;width:3px}
     body.touch .trow .tt{width:26px}
+    .champbox{margin-top:12px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px}
+    .champhead{font-size:11px;letter-spacing:.12em;color:var(--accent);font-weight:800;margin-bottom:7px}
+    .chrow{display:flex;align-items:center;gap:9px;padding:3px 2px;font-size:13px;font-weight:700}
+    .chrow span{width:16px;color:#8fa0b0;text-align:center}
+    .chrow em{margin-left:auto;font-style:normal;color:#c2cedb;font-variant-numeric:tabular-nums}
+    .chrow.me{color:var(--accent)}
+    .champreset{margin-top:8px;background:none;border:none;color:#6f7d8d;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:2px}
+    .champreset:hover{color:var(--warn)}
     #lights{position:absolute;z-index:6;left:50%;top:62px;transform:translateX(-50%);display:flex;gap:13px;pointer-events:none}
     #lights i{width:32px;height:32px;border-radius:50%;background:#16191f;border:2px solid #2a2f3a;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
     #lights i.on{background:radial-gradient(circle at 50% 36%,#ff6f60,#cf1d12);border-color:#ff6f60;box-shadow:0 0 18px 3px rgba(226,58,54,.6),inset 0 2px 6px rgba(0,0,0,.25)}
@@ -216,6 +224,11 @@
         <div><span>Best lap</span><b id="res-best">--</b></div>
       </div>
       <div class="rsplits" id="res-splits"></div>
+      <div id="champ" class="champbox" hidden>
+        <div class="champhead">CHAMPIONSHIP</div>
+        <div id="champ-rows"></div>
+        <button id="champ-reset" class="champreset">reset season</button>
+      </div>
       <div class="rbtns">
         <button id="btn-again" class="rbtn primary">Race again</button>
         <button id="btn-circuits" class="rbtn">Change circuit</button>
@@ -921,6 +934,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v76 — championship mode: persistent season points + standings on results card */
 /* BUILD v75 — glass-mode timing tower + radio, compact touch sizing */
 /* BUILD v74 — live timing tower: positions, tags, intervals, pit status */
 /* BUILD v73 — touch layout: compact engineer radio on phones */
@@ -992,6 +1006,9 @@ function finishRace(){
     const delta=base?(s-base):null;
     d.innerHTML='<span>Lap '+(i+1)+'</span><b>'+fmt(s)+'</b>'+(delta!=null?'<em>'+(delta>=0?'+':'')+delta.toFixed(2)+'s</em>':'');
     dl.appendChild(d); });
+  const ch=chAward();
+  if(ch)chRender(ch.d,ch.got);
+  else { const cb=document.getElementById('champ'); if(cb)cb.hidden=true; }
   box.hidden=false;
 }
 
@@ -1108,6 +1125,36 @@ function stormUpdate(dt){
 // ---- transient toast ----
 const flashEl=document.getElementById('flash'); let _flashT=null;
 function flash(msg){ if(!flashEl)return; flashEl.textContent=msg; flashEl.classList.add('show'); clearTimeout(_flashT); _flashT=setTimeout(()=>flashEl.classList.remove('show'),1400); }
+/* ---------- BUILD v76: championship mode ---------- */
+const CH_PTS=[10,7,5,3,2,1];
+const CH_KEY='apexChamp1';
+function chLoad(){ try{ const d=JSON.parse(localStorage.getItem(CH_KEY)); if(d&&d.pts&&d.rounds)return d; }catch(e){} return {pts:{},rounds:[]}; }
+function chSave(d){ try{ localStorage.setItem(CH_KEY,JSON.stringify(d)); }catch(e){} }
+function chAward(){
+  if((typeof MODE!=='undefined'&&MODE==='quali')||net||cars.length<2)return null;
+  const d=chLoad();
+  const order=cars.slice().sort((a,b)=>b.total-a.total);
+  order.forEach((c,i)=>{ const t=c.tag||'CAR'; d.pts[t]=(d.pts[t]||0)+(CH_PTS[i]||0); });
+  const myPos=order.findIndex(c=>c.isPlayer);
+  d.rounds.push({t:TRACK_ID,p:myPos+1});
+  chSave(d);
+  return {d,got:CH_PTS[myPos]||0};
+}
+function chRender(d,got){
+  const box=document.getElementById('champ'),rows=document.getElementById('champ-rows');
+  if(!box||!rows)return;
+  const list=Object.entries(d.pts).sort((a,b)=>b[1]-a[1]);
+  rows.innerHTML='';
+  list.forEach(([t,p],i)=>{
+    const r=document.createElement('div'); r.className='chrow'+(t==='PAT'?' me':'');
+    r.innerHTML='<span>'+(i+1)+'</span><b>'+t+'</b><em>'+p+' PTS</em>';
+    rows.appendChild(r); });
+  const head=box.querySelector('.champhead');
+  if(head)head.textContent='CHAMPIONSHIP \u2014 ROUND '+d.rounds.length+(got?' \u00b7 +'+got+' PTS THIS RACE':'');
+  box.hidden=false;
+}
+(function(){ const b=document.getElementById('champ-reset');
+  if(b)b.addEventListener('click',()=>{ chSave({pts:{},rounds:[]}); chRender(chLoad(),0); }); })();
 /* ---------- BUILD v74: live timing tower ---------- */
 const towerEl=document.getElementById('tower');
 let _twT=0, _twRows=null;
