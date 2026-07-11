@@ -819,6 +819,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v69 — car materials: clearcoat paint, steering wheels, glowing brake discs */
 /* BUILD v68 — post-processing: hand-rolled bloom + vignette + speed chromatic aberration */
 /* BUILD v67 — fallible AI + dynamic time of day + dynamic weather (wet grip) */
 /* BUILD v66 — slipstream tow + dirty air (grip loss when following close) */
@@ -1688,11 +1689,11 @@ function createCar(primary,secondary,isPlayer){
   const g=new THREE.Group();
   const carbon=new THREE.MeshStandardMaterial({color:0x171a20,metalness:.35,roughness:.5});
   const carbonD=new THREE.MeshStandardMaterial({color:0x0b0d11,metalness:.3,roughness:.55});
-  const paint=new THREE.MeshStandardMaterial({color:primary,metalness:.25,roughness:.32});
-  const acc=new THREE.MeshStandardMaterial({color:secondary,metalness:.3,roughness:.42});
+  const paint=new THREE.MeshPhysicalMaterial({color:primary,metalness:.55,roughness:.22,clearcoat:1.0,clearcoatRoughness:.12});
+  const acc=new THREE.MeshPhysicalMaterial({color:secondary,metalness:.5,roughness:.28,clearcoat:.9,clearcoatRoughness:.16});
   const rubber=new THREE.MeshStandardMaterial({color:0x14161a,roughness:.9,map:TYRETEX});
   const hubMat=new THREE.MeshStandardMaterial({color:0x2c313a,metalness:.7,roughness:.35});
-  const noseMat=new THREE.MeshStandardMaterial({color:isPlayer?0xeceef1:primary,metalness:.2,roughness:.35});
+  const noseMat=new THREE.MeshPhysicalMaterial({color:isPlayer?0xeceef1:primary,metalness:.4,roughness:.24,clearcoat:1.0,clearcoatRoughness:.12});
   const add=(mesh,x,y,z)=>{mesh.position.set(x,y,z); mesh.castShadow=true; mesh.receiveShadow=true; g.add(mesh); return mesh;};
   const B=(w,h,d,m)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
   // floor / chassis plank
@@ -1737,16 +1738,22 @@ function createCar(primary,secondary,isPlayer){
   for(const sx of [-1,1]){add(B(.1,.7,.15,carbonD),sx*.5,1.25,-4.1); add(B(.08,.86,.95,carbonD),sx*1.35,1.5,-4.2);}
   add(B(2.0,.08,.3,carbon),0,.95,-4.3);                        // beam wing
   // wheels (open) + hubs + wishbones — y derived from radius so bigger tyres sit right
-  const wheel=(x,z,r,wd)=>{
-    const yc=r-0.27;
+  const WSPIN=[], WSTEER=[];
+  const discMat=new THREE.MeshStandardMaterial({color:0x17191d,emissive:0xff5a14,emissiveIntensity:0,roughness:.55,metalness:.45});
+  const wheel=(x,z,r,wd,steer)=>{
+    const grp=new THREE.Group(); grp.position.set(x,r-0.27,z); g.add(grp);
     const wg=new THREE.CylinderGeometry(r,r,wd,22); wg.rotateZ(Math.PI/2);
-    add(new THREE.Mesh(wg,rubber),x,yc,z);
+    const ty=new THREE.Mesh(wg,rubber); ty.castShadow=true; ty.receiveShadow=true; grp.add(ty); WSPIN.push(ty);
     const hg=new THREE.CylinderGeometry(r*.42,r*.42,wd+.02,14); hg.rotateZ(Math.PI/2);
-    add(new THREE.Mesh(hg,hubMat),x,yc,z);
-    add(B(Math.abs(x)-.9,.08,.12,carbonD), x>0? x/2+.2 : x/2-.2, yc, z); // wishbone (static)
+    const hb=new THREE.Mesh(hg,hubMat); hb.castShadow=true; grp.add(hb); WSPIN.push(hb);
+    /* brake disc: glowing annulus poking just past the hub on both wheel faces */
+    const dg=new THREE.CylinderGeometry(r*.52,r*.52,wd+.05,18); dg.rotateZ(Math.PI/2);
+    const dk=new THREE.Mesh(dg,discMat); grp.add(dk);
+    add(B(Math.abs(x)-.9,.08,.12,carbonD), x>0? x/2+.2 : x/2-.2, r-0.27, z);
+    if(steer)WSTEER.push(grp);
   };
-  wheel(-2.35,2.75,.82,.66); wheel(2.35,2.75,.82,.66);            // front
-  wheel(-2.48,-2.5,.98,1.16); wheel(2.48,-2.5,.98,1.16);          // rear — fat modern slicks
+  wheel(-2.35,2.75,.82,.66,true); wheel(2.35,2.75,.82,.66,true);
+  wheel(-2.48,-2.5,.98,1.16,false); wheel(2.48,-2.5,.98,1.16,false);
   // player livery: Ethical AI wordmark + real POLYMATH crest
   if(isPlayer){
     const decal=(tex,w,h,x,y,z,ry,rx,back)=>{
@@ -1779,7 +1786,7 @@ function createCar(primary,secondary,isPlayer){
     fm.position.set((Math.random()-.5)*.9,.4+Math.random()*.5,(Math.random()-.5)*1.4); fm.visible=false; fireGroup.add(fm); flames.push(fm); }
   const smoke=new THREE.Mesh(new THREE.SphereGeometry(.7,7,6),new THREE.MeshBasicMaterial({color:0x2b2b30,transparent:true,opacity:.5,depthWrite:false}));
   smoke.position.set(0,1.9,.1); fireGroup.add(smoke); g.add(fireGroup);
-  return {mesh:g,isPlayer,rainMat,flame,helmet:driver,drs,drsT:0,drsActive:false,fireGroup,flames,smoke};
+  return {mesh:g,isPlayer,rainMat,flame,helmet:driver,drs,drsT:0,drsActive:false,fireGroup,flames,smoke,wheelSpin:WSPIN,wheelSteer:WSTEER,discMat};
 }
 
 function updateCar(car,dt){
@@ -1846,7 +1853,11 @@ function updateCar(car,dt){
   const p=curve.getPointAt(car.progress), tan=curve.getTangentAt(car.progress).normalize(), n=new THREE.Vector3(-tan.z,0,tan.x).normalize(), pos=p.clone().addScaledVector(n,car.lateral);
   pos.y=roadY(car.progress)+.30; car.mesh.position.copy(pos); car.roll=THREE.MathUtils.lerp(car.roll||0,car.rollT||0,1-Math.pow(0.002,dt)); car.pitch=THREE.MathUtils.lerp(car.pitch||0,car.pitchT||0,1-Math.pow(0.002,dt));  // v65: smoothed weight transfer
   car.mesh.rotation.order='YXZ'; car.mesh.rotation.y=Math.atan2(tan.x,tan.z)-car.steer*.12; car.mesh.rotation.x=THREE.MathUtils.clamp(-Math.atan2(gradeAt(car.progress),LAPLEN*0.008),-.26,.26)+car.pitch; car.mesh.rotation.z=car.roll;
-  for(const child of car.mesh.children)if(child.geometry&&child.geometry.type==='CylinderGeometry')child.rotation.x+=car.speed*dt*.06;
+  if(car.wheelSpin){ const spin=car.speed*dt*.06; for(let i=0;i<car.wheelSpin.length;i++) car.wheelSpin[i].rotation.x+=spin; }
+  if(car.wheelSteer){ const sy=THREE.MathUtils.clamp(-car.steer*0.38,-0.45,0.45); for(let i=0;i<car.wheelSteer.length;i++) car.wheelSteer[i].rotation.y=THREE.MathUtils.lerp(car.wheelSteer[i].rotation.y,sy,1-Math.pow(0.002,dt)); }
+  if(car.discMat){ const brk=car.isPlayer?((keys.has('arrowdown')||keys.has('s'))&&race.state==='racing'):(((car._pv!==undefined?car._pv:car.speed)-car.speed)/Math.max(dt,1e-4)>7); car._pv=car.speed;
+    const heat=(brk&&car.speed>12)?THREE.MathUtils.clamp(car.speed/(car.maxSpeed||120),0.35,1)*2.4:0;
+    car.discMat.emissiveIntensity=THREE.MathUtils.lerp(car.discMat.emissiveIntensity,heat,1-Math.pow(brk?0.0005:0.02,dt)); }
   { const ta=curve.getTangentAt(car.progress).normalize(), tb=curve.getTangentAt((car.progress+.012)%1).normalize(); const turn=ta.x*tb.z-ta.z*tb.x;
     const braking=car.isPlayer&&(keys.has('arrowdown')||keys.has('s'));
     const drsOpen = race.state==='racing' && car.speed>car.maxSpeed*0.7 && Math.abs(turn)<0.05 && !braking; car.drsActive=drsOpen;
