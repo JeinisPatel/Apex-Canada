@@ -361,6 +361,83 @@ function postRender(){
   }catch(e){ postFailed=true; try{ renderer.setRenderTarget(null); }catch(e2){} renderer.render(scene,camera); }
 }
 
+/* ---------- skid marks + racing groove (BUILD v84) ---------- */
+const SKID_N=600;
+const skidGeo=new THREE.BufferGeometry();
+const skidPos=new Float32Array(SKID_N*4*3);
+{ const idx=new Uint16Array(SKID_N*6);
+  for(let i=0;i<SKID_N;i++){ const v=i*4,o=i*6;
+    idx[o]=v; idx[o+1]=v+1; idx[o+2]=v+2; idx[o+3]=v; idx[o+4]=v+2; idx[o+5]=v+3; }
+  skidGeo.setAttribute('position',new THREE.BufferAttribute(skidPos,3));
+  skidGeo.setIndex(new THREE.BufferAttribute(idx,1)); }
+const skidMesh=new THREE.Mesh(skidGeo,new THREE.MeshBasicMaterial({color:0x0a0b0d,transparent:true,opacity:0.34,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}));
+skidMesh.frustumCulled=false; skidMesh.renderOrder=2; scene.add(skidMesh);
+let skidHead=0;
+function skidLay(x,y,z,ry,pitch){
+  const hw=0.19, hl=0.52;
+  const fx=Math.sin(ry)*hl, fz=Math.cos(ry)*hl;
+  const rx=Math.cos(ry)*hw, rz=-Math.sin(ry)*hw;
+  const dy=hl*pitch;
+  const v=skidHead*4*3; skidHead=(skidHead+1)%SKID_N;
+  skidPos[v  ]=x-rx+fx; skidPos[v+1 ]=y+dy; skidPos[v+2 ]=z-rz+fz;
+  skidPos[v+3]=x+rx+fx; skidPos[v+4 ]=y+dy; skidPos[v+5 ]=z+rz+fz;
+  skidPos[v+6]=x+rx-fx; skidPos[v+7 ]=y-dy; skidPos[v+8 ]=z+rz-fz;
+  skidPos[v+9]=x-rx-fx; skidPos[v+10]=y-dy; skidPos[v+11]=z-rz-fz;
+  skidGeo.attributes.position.needsUpdate=true;
+}
+const _sw=new THREE.Vector3();
+function skidTick(dt){
+  if(race.state!=='racing')return;
+  for(const car of cars){
+    if(!car.mesh)continue;
+    const spd=car.speed||0; if(spd<20)continue;
+    const HALF=ROAD_W/2, aLat=Math.abs(car.lateral);
+    if(aLat>HALF)continue;
+    let laying=false;
+    if(car.isPlayer){
+      const braking=(keys.has('arrowdown')||keys.has('s'))&&spd>45;
+      const sliding=Math.abs(car.steer)>0.55&&spd>car.maxSpeed*0.5;
+      laying=braking||sliding;
+    }else{
+      const dec=((car._pv!==undefined?car._pv:car.speed)-car.speed)/Math.max(dt,1e-4);
+      laying=dec>7||(Math.abs(car.steer)>0.5&&spd>car.maxSpeed*0.55);
+    }
+    if(!laying){ car._skidD=0; continue; }
+    car._skidD=(car._skidD||0)+spd*dt;
+    if(car._skidD<0.95)continue;
+    car._skidD=0;
+    const ry=car.mesh.rotation.y, pitch=car.mesh.rotation.x;
+    const y=roadY(car.progress)+0.07;
+    for(const sx of [-2.2,2.2]){
+      _sw.set(sx,0,-2.5); car.mesh.localToWorld(_sw);
+      skidLay(_sw.x,y,_sw.z,ry,pitch);
+    }
+  }
+}
+/* rubbered-in groove: built lazily on first tick, darkens with laps */
+let grooveMat=null;
+function grooveBuild(){
+  const W=ROAD_W*0.46, seg=240;
+  const pos=new Float32Array((seg+1)*2*3), idx=[];
+  for(let i=0;i<=seg;i++){ const t=i/seg;
+    const p=curve.getPointAt(t%1), tn=curve.getTangentAt(t%1).normalize();
+    const n=new THREE.Vector3(-tn.z,0,tn.x).normalize(), y=roadY(t%1)+0.045;
+    const o=i*6;
+    pos[o  ]=p.x+n.x*W/2; pos[o+1]=y; pos[o+2]=p.z+n.z*W/2;
+    pos[o+3]=p.x-n.x*W/2; pos[o+4]=y; pos[o+5]=p.z-n.z*W/2;
+    if(i<seg){ const v=i*2; idx.push(v,v+1,v+2, v+1,v+3,v+2); } }
+  const gg=new THREE.BufferGeometry();
+  gg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  gg.setIndex(idx);
+  grooveMat=new THREE.MeshBasicMaterial({color:0x0b0c0f,transparent:true,opacity:0.03,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1});
+  const gm=new THREE.Mesh(gg,grooveMat); gm.renderOrder=1; gm.frustumCulled=false; scene.add(gm);
+}
+function grooveTick(){
+  if(!grooveMat)grooveBuild();
+  const lapsDone=Math.max(0,(player.lap||1)-1);
+  grooveMat.opacity=Math.min(0.20,0.03+lapsDone*0.045);
+}
+function skidsUpdate(dt){ skidTick(dt); grooveTick(); }
 /* ---------- environment reflections (BUILD v82): per-TOD cubemaps ---------- */
 const ENVCUBES={}, ENVM=[];
 function makeEnvCube(i){
@@ -983,6 +1060,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v84 — persistent skid marks + rubbered-in racing groove */
 /* BUILD v83 — mockup silhouette ported into createCar: sculpted body on the existing footprint */
 /* BUILD v82 — environment reflections: per-TOD procedural cubemaps on car materials */
 /* BUILD v81 — ghost car: best qualifying lap recorded, persisted, replayed translucent */
@@ -2440,7 +2518,7 @@ function dynWX(dt){
   const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
   if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); towerTick(dt); ghostTick(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background=CMP(player).col;} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); towerTick(dt); ghostTick(dt); skidsUpdate(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background=CMP(player).col;} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
