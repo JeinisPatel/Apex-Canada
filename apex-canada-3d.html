@@ -60,6 +60,9 @@
     .chrow.me{color:var(--accent)}
     .champreset{margin-top:8px;background:none;border:none;color:#6f7d8d;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:2px}
     .champreset:hover{color:var(--warn)}
+    .confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+    .confetti i{position:absolute;top:-5vh;width:9px;height:14px;border-radius:2px;opacity:.95;animation:cfall linear forwards}
+    @keyframes cfall{0%{transform:translateY(0) rotate(0deg)}100%{transform:translateY(115vh) rotate(720deg)}}
     #lights{position:absolute;z-index:6;left:50%;top:62px;transform:translateX(-50%);display:flex;gap:13px;pointer-events:none}
     #lights i{width:32px;height:32px;border-radius:50%;background:#16191f;border:2px solid #2a2f3a;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
     #lights i.on{background:radial-gradient(circle at 50% 36%,#ff6f60,#cf1d12);border-color:#ff6f60;box-shadow:0 0 18px 3px rgba(226,58,54,.6),inset 0 2px 6px rgba(0,0,0,.25)}
@@ -946,6 +949,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v78 — launch discipline (jump-start power cut, reaction bonus) + podium confetti */
 /* BUILD v77 — season standings overlay from main menu */
 /* BUILD v76 — championship mode: persistent season points + standings on results card */
 /* BUILD v75 — glass-mode timing tower + radio, compact touch sizing */
@@ -968,7 +972,7 @@ const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45
 /* BUILD v58 — car-to-car contact (player vs AI bump physics) */
 /* BUILD v57 — steering assist rework: assist never replaces input */
 const DIFFS=[{n:'Rookie',mul:0.86,assist:0.94},{n:'Pro',mul:1.06,assist:0.985},{n:'Ace',mul:1.14,assist:1.0}]; let diffIdx=1;
-const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0};
+const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0, jump:false, launched:true, launchT:0};
 const timeEl=document.getElementById('rtime'), bestEl=document.getElementById('rbest'), drsEl=document.getElementById('drs'), tyreFill=document.getElementById('tyrefill');
 const lightsBox=document.getElementById('lights'), gomsg=document.getElementById('gomsg');
 const lightEls=lightsBox?[...lightsBox.querySelectorAll('i')]:[];
@@ -978,8 +982,17 @@ function setLights(n){ for(let i=0;i<lightEls.length;i++)lightEls[i].classList.t
 function goFlash(){ if(lightsBox)lightsBox.classList.add('hide'); player.boostN=1; player.boostT=0; if(gomsg){ gomsg.textContent="It's Lights Out!"; gomsg.classList.add('show'); setTimeout(()=>{ gomsg.textContent="And, they're off!"; },1000); setTimeout(()=>gomsg.classList.remove('show'),2200); } }
 function updateRace(dt){
   if(race.state==='countdown'){ race.cd+=dt; setLights(Math.min(5,Math.floor(race.cd/0.6)));
-    if(race.cd>=race.goAt){ race.state='racing'; race.clock=0; race.lapStart=0; setLights(0); goFlash(); } }
-  else if(race.state==='racing'){ race.clock+=dt; }
+    if(race.cd>=race.goAt){ race.state='racing'; race.clock=0; race.lapStart=0; setLights(0);
+      race.jump=(MODE!=='quali')&&(keys.has('arrowup')||keys.has('w'));
+      race.launched=false; race.launchT=0;
+      if(race.jump){ player.jumpCut=1.6; flash('JUMP START \u2014 POWER CUT'); if(typeof radioMsg==='function')radioMsg('jmp','THAT WAS A JUMP START \u2014 POWER CUT, SORRY',999); }
+      goFlash(); } }
+  else if(race.state==='racing'){ race.clock+=dt;
+    if((player.jumpCut||0)>0)player.jumpCut-=dt;
+    if(!race.launched&&MODE!=='quali'){ race.launchT+=dt;
+      if(keys.has('arrowup')||keys.has('w')){ race.launched=true;
+        if(!race.jump&&race.launchT<0.35){ player.speed+=6; flash('GREAT LAUNCH'); } }
+      else if(race.launchT>3)race.launched=true; } }
 }
 function onLapComplete(car){
   if(car!==player)return;
@@ -1019,6 +1032,9 @@ function finishRace(){
     const delta=base?(s-base):null;
     d.innerHTML='<span>Lap '+(i+1)+'</span><b>'+fmt(s)+'</b>'+(delta!=null?'<em>'+(delta>=0?'+':'')+delta.toFixed(2)+'s</em>':'');
     dl.appendChild(d); });
+  const eye=box.querySelector('.reye');
+  if(eye)eye.textContent=race.pos===1?'Race Winner':(race.pos<=3?'Podium Finish':'Chequered Flag');
+  if(race.pos<=3)spawnConfetti(box);
   const ch=chAward();
   if(ch)chRender(ch.d,ch.got);
   else { const cb=document.getElementById('champ'); if(cb)cb.hidden=true; }
@@ -1138,6 +1154,19 @@ function stormUpdate(dt){
 // ---- transient toast ----
 const flashEl=document.getElementById('flash'); let _flashT=null;
 function flash(msg){ if(!flashEl)return; flashEl.textContent=msg; flashEl.classList.add('show'); clearTimeout(_flashT); _flashT=setTimeout(()=>flashEl.classList.remove('show'),1400); }
+/* ---------- BUILD v78: podium confetti ---------- */
+function spawnConfetti(host){
+  const c=document.createElement('div'); c.className='confetti';
+  const cols=['#39d2c0','#ffd23a','#e8443a','#3a7fe8','#f0f3f7','#9a5ae8'];
+  for(let i=0;i<70;i++){ const s=document.createElement('i');
+    s.style.left=(Math.random()*100)+'%';
+    s.style.background=cols[i%cols.length];
+    s.style.animationDuration=(2.6+Math.random()*2.4)+'s';
+    s.style.animationDelay=(Math.random()*0.8)+'s';
+    c.appendChild(s); }
+  host.appendChild(c);
+  setTimeout(()=>c.remove(),6500);
+}
 /* ---------- BUILD v76: championship mode ---------- */
 const CH_PTS=[10,7,5,3,2,1];
 const CH_KEY='apexChamp1';
@@ -2049,7 +2078,7 @@ function updateCar(car,dt){
   if(_pitting){ car.pitT-=dt; if(car.pitT<=0){ car.tyre=1; car.damage=0; car.dmgMul=1; car.onFire=false; car.pitStops=(car.pitStops||0)+1; car.pitCool=6; if(car.isPlayer){flash('TYRES FITTED \u2014 REPAIRED'); if(typeof setPitBtn==='function')setPitBtn();} } }
   if(car.isPlayer){
     const racing=race.state==='racing';
-    const throttle=racing&&!_pitting&&(keys.has('arrowup')||keys.has('w')), brake=racing&&!_pitting&&(keys.has('arrowdown')||keys.has('s')), left=racing&&!_pitting&&(keys.has('arrowleft')||keys.has('a')), right=racing&&!_pitting&&(keys.has('arrowright')||keys.has('d'));
+    const throttle=racing&&!_pitting&&!(car.isPlayer&&(car.jumpCut||0)>0)&&(keys.has('arrowup')||keys.has('w')), brake=racing&&!_pitting&&(keys.has('arrowdown')||keys.has('s')), left=racing&&!_pitting&&(keys.has('arrowleft')||keys.has('a')), right=racing&&!_pitting&&(keys.has('arrowright')||keys.has('d'));
     if(car.boostT>0)car.boostT-=dt;                                // boost: one fixed burst, recharges each lap
     if(racing&&!_pitting&&keys.has('shift')&&car.boostT<=0&&(car.boostN||0)>0){ car.boostN--; car.boostT=2.8; if(typeof flash==='function')flash('BOOST \u2014 GO'); }
     const boost=car.boostT>0;
