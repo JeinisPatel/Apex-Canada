@@ -268,6 +268,50 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07111f);
 scene.fog = new THREE.FogExp2(0x07111f, 0.0085);
 const camera = new THREE.PerspectiveCamera(64, 1, 0.1, 2200);
+
+/* ---------- post-processing pipeline (BUILD v68): bloom + vignette + speed chroma ---------- */
+let rtScene=null, rtBloomA=null, rtBloomB=null, postFailed=false, postInited=false;
+let postQuadScene=null, postQuadCam=null, postQuadMesh=null, postBright=null, postBlur=null, postComp=null;
+const POST_VERT='varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }';
+function postInit(){
+  const size=renderer.getDrawingBufferSize(new THREE.Vector2());
+  const W=Math.max(2,Math.floor(size.x)), H=Math.max(2,Math.floor(size.y));
+  const pars={minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat};
+  const canMSAA=!!(renderer.capabilities&&renderer.capabilities.isWebGL2&&THREE.WebGLMultisampleRenderTarget);
+  rtScene=canMSAA?new THREE.WebGLMultisampleRenderTarget(W,H,pars):new THREE.WebGLRenderTarget(W,H,pars);
+  rtScene.depthBuffer=true;
+  const BW=Math.max(2,W>>1), BH=Math.max(2,H>>1);
+  rtBloomA=new THREE.WebGLRenderTarget(BW,BH,pars);
+  rtBloomB=new THREE.WebGLRenderTarget(BW,BH,pars);
+  postQuadScene=new THREE.Scene();
+  postQuadCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  postQuadMesh=new THREE.Mesh(new THREE.PlaneGeometry(2,2));
+  postQuadMesh.frustumCulled=false;
+  postQuadScene.add(postQuadMesh);
+  postBright=new THREE.ShaderMaterial({uniforms:{tex:{value:null},thr:{value:0.72},knee:{value:0.22}},vertexShader:POST_VERT,fragmentShader:'uniform sampler2D tex; uniform float thr; uniform float knee; varying vec2 vUv; void main(){ vec3 c=texture2D(tex,vUv).rgb; float l=dot(c,vec3(0.2126,0.7152,0.0722)); float wgt=smoothstep(thr,thr+knee,l); gl_FragColor=vec4(c*wgt,1.0); }',depthTest:false,depthWrite:false});
+  postBlur=new THREE.ShaderMaterial({uniforms:{tex:{value:null},dir:{value:new THREE.Vector2(1,0)},texel:{value:new THREE.Vector2(1/BW,1/BH)}},vertexShader:POST_VERT,fragmentShader:'uniform sampler2D tex; uniform vec2 dir; uniform vec2 texel; varying vec2 vUv; void main(){ vec2 d=dir*texel; vec3 s=texture2D(tex,vUv).rgb*0.227027; s+=(texture2D(tex,vUv+d*1.3846).rgb+texture2D(tex,vUv-d*1.3846).rgb)*0.3162162; s+=(texture2D(tex,vUv+d*3.2308).rgb+texture2D(tex,vUv-d*3.2308).rgb)*0.0702703; gl_FragColor=vec4(s,1.0); }',depthTest:false,depthWrite:false});
+  postComp=new THREE.ShaderMaterial({uniforms:{tex:{value:null},bloom:{value:null},bloomStr:{value:0.85},fx:{value:0}},vertexShader:POST_VERT,fragmentShader:'uniform sampler2D tex; uniform sampler2D bloom; uniform float bloomStr; uniform float fx; varying vec2 vUv; void main(){ vec2 d=vUv-0.5; float r=length(d); vec2 off=d*fx*0.010; vec3 c; c.r=texture2D(tex,vUv+off).r; c.g=texture2D(tex,vUv).g; c.b=texture2D(tex,vUv-off).b; c+=texture2D(bloom,vUv).rgb*bloomStr; float vig=1.0-smoothstep(0.55,0.98,r)*(0.30+fx*0.14); gl_FragColor=vec4(c*vig,1.0); }',depthTest:false,depthWrite:false});
+  postInited=true;
+}
+function postPass(mat,target){ postQuadMesh.material=mat; renderer.setRenderTarget(target); renderer.render(postQuadScene,postQuadCam); }
+function postResize(){ if(!postInited)return; try{ rtScene.dispose(); rtBloomA.dispose(); rtBloomB.dispose(); }catch(e){} postInited=false; }
+function postRender(){
+  if(postFailed){ renderer.render(scene,camera); return; }
+  try{
+    if(!postInited) postInit();
+    let fxT=0;
+    if(typeof player!=='undefined'&&player){ const fr=player.maxSpeed?player.speed/player.maxSpeed:0; fxT=Math.max(0,Math.min(1,(fr-0.72)/0.28))*0.5; if(player.boostT>0)fxT+=0.6; if(fxT>1.1)fxT=1.1; }
+    postComp.uniforms.fx.value+=(fxT-postComp.uniforms.fx.value)*0.12;
+    renderer.setRenderTarget(rtScene); renderer.render(scene,camera);
+    postBright.uniforms.tex.value=rtScene.texture; postPass(postBright,rtBloomA);
+    postBlur.uniforms.tex.value=rtBloomA.texture; postBlur.uniforms.dir.value.set(1,0); postPass(postBlur,rtBloomB);
+    postBlur.uniforms.tex.value=rtBloomB.texture; postBlur.uniforms.dir.value.set(0,1); postPass(postBlur,rtBloomA);
+    postBlur.uniforms.tex.value=rtBloomA.texture; postBlur.uniforms.dir.value.set(2,0); postPass(postBlur,rtBloomB);
+    postBlur.uniforms.tex.value=rtBloomB.texture; postBlur.uniforms.dir.value.set(0,2); postPass(postBlur,rtBloomA);
+    postComp.uniforms.tex.value=rtScene.texture; postComp.uniforms.bloom.value=rtBloomA.texture;
+    postPass(postComp,null);
+  }catch(e){ postFailed=true; try{ renderer.setRenderTarget(null); }catch(e2){} renderer.render(scene,camera); }
+}
 // gradient sky dome — zenith/horizon track the active time-of-day + weather palette
 const skyMat=new THREE.ShaderMaterial({
   uniforms:{ top:{value:new THREE.Color(0x6f9ed0)}, bot:{value:new THREE.Color(0xc3d6ea)}, exph:{value:0.6} },
@@ -775,6 +819,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v68 — post-processing: hand-rolled bloom + vignette + speed chromatic aberration */
 /* BUILD v67 — fallible AI + dynamic time of day + dynamic weather (wet grip) */
 /* BUILD v66 — slipstream tow + dirty air (grip loss when following close) */
 /* BUILD v65 — weight transfer (roll + pitch) and camera lag */
@@ -1853,7 +1898,7 @@ function updateCamera(dt){
 }
 
 function cycleView(){ const i=VIEW_ORDER.indexOf(view); view=VIEW_ORDER[(i+1)%VIEW_ORDER.length]; viewEl.textContent=VIEW_LABEL[view]; }
-function resize(){renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();}
+function resize(){renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); postResize();}
 /* ============================ ONLINE MULTIPLAYER ============================ */
 /* Set this to your deployed PartyKit host (no protocol), e.g. apex-canada.jeinis.partykit.dev */
 const PARTY_HOST='apex-canada.jeinis-s-patel.workers.dev';
@@ -1989,7 +2034,7 @@ function dynWX(dt){
   const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
   if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); renderer.render(scene,camera); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); renderer.render(scene,camera); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background='hsl('+Math.round(_tv*120)+',72%,46%)';} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
