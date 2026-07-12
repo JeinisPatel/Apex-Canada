@@ -993,7 +993,7 @@ function applyTOD(i){ const t=TODS[((i%TODS.length)+TODS.length)%TODS.length]; t
   scene.background.setHex(t.sky); scene.fog.color.setHex(t.fog); scene.fog.density=t.fogD*FOGK;
   hemi.color.setHex(t.hs); hemi.groundColor.setHex(t.hg); hemi.intensity=t.hi;
   sun.color.setHex(t.sc); sun.intensity=t.si; sun.position.set(t.sp[0],t.sp[1],t.sp[2]); SUN_DIR.copy(sun.position).normalize(); if(typeof applyEnvTOD==='function')applyEnvTOD();
-  for(const L of LITES) L.mat.emissiveIntensity=L.base*t.lit;
+  for(const L of LITES) L.mat.emissiveIntensity=L.base*(t.lit + t.lit*t.lit*2.4);
 }
 applyTOD(1);   // start in daylight
 
@@ -1065,6 +1065,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v87 — city lights: night window overdrive across all buildings, more lit windows */
 /* BUILD v86 — mobile menu scrollers (portrait fix) + bigger, denser grandstands */
 /* BUILD v85 — trackside life: grandstands with crowds, marshal posts, waving flags */
 /* BUILD v84 — persistent skid marks + rubbered-in racing groove */
@@ -1770,7 +1771,7 @@ function buildWorld(){
     const W=48,H=72,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
     x.fillStyle='#'+('000000'+baseHex.toString(16)).slice(-6);x.fillRect(0,0,W,H);
     const cols=4,rows=6,mx=5,my=6,gw=(W-mx*2)/cols,gh=(H-my*2)/rows;
-    for(let r=0;r<rows;r++)for(let cc=0;cc<cols;cc++){x.fillStyle=Math.random()<litP?'rgba(255,222,150,'+(.55+Math.random()*.4)+')':'rgba(16,22,30,.9)';x.fillRect(mx+cc*gw+1,my+r*gh+1,gw-2.5,gh-2.5);}
+    for(let r=0;r<rows;r++)for(let cc=0;cc<cols;cc++){x.fillStyle=Math.random()<Math.min(.85,litP*1.7)?'rgba(255,224,155,'+(.6+Math.random()*.4)+')':'rgba(16,22,30,.9)';x.fillRect(mx+cc*gw+1,my+r*gh+1,gw-2.5,gh-2.5);}
     const tx=new THREE.CanvasTexture(c);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;return tx;}
   function mkStruct(t,wx,wz){
     const s=STRUCT[t]||{w:13,h:12,d:13,c:0x6a7078};
