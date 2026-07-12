@@ -1060,6 +1060,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v85 — trackside life: grandstands with crowds, marshal posts, waving flags */
 /* BUILD v84 — persistent skid marks + rubbered-in racing groove */
 /* BUILD v83 — mockup silhouette ported into createCar: sculpted body on the existing footprint */
 /* BUILD v82 — environment reflections: per-TOD procedural cubemaps on car materials */
@@ -1088,6 +1089,91 @@ const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45
 /* BUILD v59 — TRACK_LEN: all circuits 1.4x longer, sense of speed preserved */
 /* BUILD v58 — car-to-car contact (player vs AI bump physics) */
 /* BUILD v57 — steering assist rework: assist never replaces input */
+/* ---------- trackside life (BUILD v85): grandstands, crowds, marshals, flags ---------- */
+(function(){
+  let _seed=0; for(let i=0;i<TRACK_ID.length;i++)_seed=(_seed*31+TRACK_ID.charCodeAt(i))>>>0;
+  const sRand=()=>{ _seed=(_seed*1664525+1013904223)>>>0; return _seed/4294967296; };
+  const curvAtT=t=>{ const h=0.006;
+    const a=curve.getTangentAt(((t-h)+1)%1), b=curve.getTangentAt((t+h)%1);
+    return Math.abs(Math.atan2(a.x*b.z-a.z*b.x, a.x*b.x+a.z*b.z)); };
+  function crowdTex(){
+    const c=document.createElement('canvas'); c.width=256; c.height=32;
+    const x=c.getContext('2d');
+    x.fillStyle='#0c0e12'; x.fillRect(0,0,256,32);
+    const cols=['#e8443a','#3a7fe8','#f0c860','#39d2c0','#e8e8e8','#9a5ae8','#3ecf6e','#e88a3a'];
+    for(let i=0;i<130;i++){ x.fillStyle=cols[(sRand()*cols.length)|0];
+      const px=sRand()*252, py=4+(sRand()<0.5?0:14)+sRand()*8;
+      x.fillRect(px,py,3,3); x.fillStyle='rgba(20,22,28,.9)'; x.fillRect(px,py+3,3,5); }
+    const t=new THREE.CanvasTexture(c); t.anisotropy=4; return t;
+  }
+  const frameM=new THREE.MeshStandardMaterial({color:0x2a2f36,metalness:.5,roughness:.6});
+  const seatM=new THREE.MeshStandardMaterial({color:0x14171c,roughness:.85});
+  const roofM=new THREE.MeshStandardMaterial({color:0x39d2c0,metalness:.35,roughness:.5});
+  const hutM=new THREE.MeshStandardMaterial({color:0xd8dde3,roughness:.7});
+  const vestM=new THREE.MeshStandardMaterial({color:0xff7a1a,roughness:.8});
+  function grandstand(){
+    const g=new THREE.Group();
+    for(let i=0;i<4;i++){
+      const b=new THREE.Mesh(new THREE.BoxGeometry(16,0.7,2.2),seatM);
+      b.position.set(0,0.9+i*1.15,-i*2.0); b.castShadow=true; b.receiveShadow=true; g.add(b);
+      const tex=crowdTex();
+      const cr=new THREE.Mesh(new THREE.PlaneGeometry(15.4,1.15),
+        new THREE.MeshBasicMaterial({map:tex,transparent:false}));
+      cr.position.set(0,1.55+i*1.15,-i*2.0+1.12); g.add(cr);
+      const ph=sRand()*6.28;
+      ANIM.push(t=>{ tex.offset.x=Math.sin(t*1.2+ph)*0.006; });
+    }
+    for(const sx of [-7,0,7]){ const leg=new THREE.Mesh(new THREE.BoxGeometry(.5,4.4,.5),frameM); leg.position.set(sx,2.2,-5.2); leg.castShadow=true; g.add(leg); }
+    const roof=new THREE.Mesh(new THREE.BoxGeometry(17,0.25,9.5),roofM);
+    roof.position.set(0,5.7,-3.0); roof.rotation.x=0.10; roof.castShadow=true; g.add(roof);
+    return g;
+  }
+  function flagTex(kind){
+    const c=document.createElement('canvas'); c.width=64; c.height=44;
+    const x=c.getContext('2d');
+    if(kind==='chk'){ for(let i=0;i<8;i++)for(let j=0;j<6;j++){ x.fillStyle=((i+j)%2)?'#101216':'#f0f3f7'; x.fillRect(i*8,j*8,8,8); } }
+    else { x.fillStyle=kind; x.fillRect(0,0,64,44); }
+    return new THREE.CanvasTexture(c);
+  }
+  function marshalPost(kind){
+    const g=new THREE.Group();
+    const hut=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.6,1.8),hutM); hut.position.y=0.8; hut.castShadow=true; g.add(hut);
+    const hr=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.14,2.0),frameM); hr.position.y=1.66; g.add(hr);
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(.22,.28,.9,10),vestM); body.position.set(1.15,1.15,0.6); body.castShadow=true; g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),hutM); head.position.set(1.15,1.78,0.6); g.add(head);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,3.4,8),frameM); pole.position.set(-1.0,1.7,0.4); g.add(pole);
+    const flagG=new THREE.Group(); flagG.position.set(-1.0,3.2,0.4); g.add(flagG);
+    const fl=new THREE.Mesh(new THREE.PlaneGeometry(1.25,0.85),
+      new THREE.MeshBasicMaterial({map:flagTex(kind),side:THREE.DoubleSide}));
+    fl.position.x=0.66; flagG.add(fl);
+    const ph=sRand()*6.28, sp=2.2+sRand()*1.4;
+    ANIM.push(t=>{ flagG.rotation.y=Math.sin(t*sp+ph)*0.55; fl.rotation.z=Math.sin(t*sp*1.7+ph)*0.10; });
+    return g;
+  }
+  function placeAt(obj,t,dist,side){
+    const p=curve.getPointAt(t), tn=curve.getTangentAt(t).normalize();
+    const n=new THREE.Vector3(-tn.z,0,tn.x).normalize();
+    obj.position.set(p.x+n.x*dist*side, roadY(t), p.z+n.z*dist*side);
+    obj.rotation.y=Math.atan2(-n.x*side,-n.z*side);
+    scene.add(obj);
+  }
+  /* grandstands on the straightest stretches, spread around the lap */
+  const cand=[];
+  for(let i=0;i<240;i++){ const t=i/240; cand.push([curvAtT(t),t]); }
+  cand.sort((a,b)=>a[0]-b[0]);
+  const spots=[];
+  for(const [,t] of cand){
+    if(spots.length>=4)break;
+    if(spots.every(s=>{ const d=Math.abs(s-t); return Math.min(d,1-d)>0.14; }))spots.push(t);
+  }
+  spots.forEach((t,i)=>placeAt(grandstand(),t,ROAD_W/2+9.5,(i%2===0)?1:-1));
+  /* marshal posts every eighth of a lap, alternating sides */
+  const FLAG_KINDS=['#ffd23a','#3a7fe8','#3ecf6e','#ffd23a'];
+  for(let i=0;i<8;i++){
+    const t=(i/8+0.055)%1;
+    placeAt(marshalPost(i===0?'chk':FLAG_KINDS[i%FLAG_KINDS.length]),t,ROAD_W/2+5.5,(i%2===0)?-1:1);
+  }
+})();
 const DIFFS=[{n:'Rookie',mul:0.86,assist:0.94},{n:'Pro',mul:1.06,assist:0.985},{n:'Ace',mul:1.14,assist:1.0}]; let diffIdx=1;
 const race={state: MP_ROOM?'lobby':(MODE==='quali'?'racing':'countdown'), phase:'out', cd:0, goAt:3.4+Math.random()*0.9, clock:0, lapStart:0, laps:[], best:Infinity, pos:0, hot:0, jump:false, launched:true, launchT:0};
 const timeEl=document.getElementById('rtime'), bestEl=document.getElementById('rbest'), drsEl=document.getElementById('drs'), tyreFill=document.getElementById('tyrefill');
