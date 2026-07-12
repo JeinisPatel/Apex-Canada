@@ -1065,6 +1065,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v88 — building architecture pass: facades, podiums, lobby glow, pilasters, beacons */
 /* BUILD v87 — city lights: night window overdrive across all buildings, more lit windows */
 /* BUILD v86 — mobile menu scrollers (portrait fix) + bigger, denser grandstands */
 /* BUILD v85 — trackside life: grandstands with crowds, marshal posts, waving flags */
@@ -1778,11 +1779,21 @@ function buildWorld(){
     const k=new THREE.Group();
     const tall=s.h>=8;
     let bodyMat;
-    if(tall){const tx=windowTex(s.c,.4);tx.repeat.set(Math.max(1,Math.round(s.w/6)),Math.max(1,Math.round(s.h/6)));bodyMat=new THREE.MeshStandardMaterial({map:tx,emissiveMap:tx,emissive:0x55421f,emissiveIntensity:.5,roughness:.66,metalness:.05});}
+    if(tall){const tx=windowTex(s.c,.42);tx.repeat.set(Math.max(2,Math.round(s.w/5)),Math.max(2,Math.round(s.h/4.5)));bodyMat=new THREE.MeshStandardMaterial({map:tx,emissiveMap:tx,emissive:0x66502a,emissiveIntensity:.5,roughness:.6,metalness:.08});}
     else bodyMat=new THREE.MeshStandardMaterial({color:s.c,roughness:.8,metalness:.03});
     const body=new THREE.Mesh(new THREE.BoxGeometry(s.w,s.h,s.d),bodyMat);
     body.position.y=s.h/2;body.castShadow=true;body.receiveShadow=true;k.add(body);
-    if(tall){const roof=new THREE.Mesh(new THREE.BoxGeometry(s.w*1.04,Math.max(1,s.h*.06),s.d*1.04),new THREE.MeshStandardMaterial({color:0x20242b,roughness:.85}));roof.position.y=s.h+Math.max(.5,s.h*.03);roof.castShadow=true;k.add(roof);}
+    if(tall){
+      const trim=new THREE.MeshStandardMaterial({color:0x1c2026,roughness:.8});
+      const pod=new THREE.Mesh(new THREE.BoxGeometry(s.w*1.18,Math.max(2,s.h*.12),s.d*1.18),trim); pod.position.y=Math.max(1,s.h*.06); pod.castShadow=true; k.add(pod);
+      const lob=new THREE.Mesh(new THREE.BoxGeometry(s.w*1.06,Math.max(.8,s.h*.03),s.d*1.06),new THREE.MeshStandardMaterial({color:0x2a2416,emissive:0xffd98a,emissiveIntensity:.7,roughness:.5})); lob.position.y=Math.max(1.4,s.h*.045); k.add(lob);
+      for(const cx of[-1,1])for(const cz of[-1,1]){ const pil=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.6,s.w*.05),s.h,Math.max(.6,s.d*.05)),trim); pil.position.set(cx*s.w/2,s.h/2,cz*s.d/2); k.add(pil); }
+      const fn=Math.max(2,Math.round(s.h/6));
+      for(let i=1;i<fn;i++){ const fb=new THREE.Mesh(new THREE.BoxGeometry(s.w*1.02,.22,s.d*1.02),trim); fb.position.y=i*(s.h/fn); k.add(fb); }
+      const roof=new THREE.Mesh(new THREE.BoxGeometry(s.w*1.06,Math.max(1,s.h*.05),s.d*1.06),trim); roof.position.y=s.h+Math.max(.5,s.h*.025); roof.castShadow=true; k.add(roof);
+      const mech=new THREE.Mesh(new THREE.BoxGeometry(s.w*.4,Math.max(1.2,s.h*.07),s.d*.4),trim); mech.position.y=s.h+Math.max(1.4,s.h*.07); k.add(mech);
+      if(s.h>=20){ const bc=new THREE.Mesh(new THREE.SphereGeometry(.45,8,6),new THREE.MeshStandardMaterial({color:0x330a08,emissive:0xff3b2a,emissiveIntensity:1.4})); bc.position.y=s.h+Math.max(2.2,s.h*.11); k.add(bc); }
+    }
     if(s.dome){const d=new THREE.Mesh(new THREE.SphereGeometry(s.w*0.28,16,12),new THREE.MeshStandardMaterial({color:0x3f5e4a,roughness:.5,metalness:.25}));d.position.y=s.h+s.w*0.16;d.castShadow=true;k.add(d);}
     if(s.turret){const tr=new THREE.Mesh(new THREE.CylinderGeometry(s.w*.32,s.w*.32,s.h*.6,10),body.material);tr.position.set(s.w*.4,s.h*.8,s.d*.4);tr.castShadow=true;k.add(tr);const cap=new THREE.Mesh(new THREE.ConeGeometry(s.w*.36,s.h*.3,10),new THREE.MeshStandardMaterial({color:0x5a3a3a}));cap.position.set(s.w*.4,s.h*1.05,s.d*.4);k.add(cap);}
     if(s.cab){const cab=new THREE.Mesh(new THREE.BoxGeometry(s.w*1.6,s.h*.18,s.d*1.6),new THREE.MeshStandardMaterial({color:0x2a3340}));cab.position.y=s.h;cab.castShadow=true;k.add(cab);}
@@ -1916,15 +1927,19 @@ function buildWorld(){
     const cap=new THREE.Mesh(new THREE.BoxGeometry(13.4,1,13.4),new THREE.MeshStandardMaterial({color:0x2a3038,roughness:.6})); cap.position.y=H+.5; k.add(cap);
     k.position.set(wx,0,wz); return k;}
   function mkCourts(wx,wz){const k=new THREE.Group();
-    const glass=new THREE.MeshStandardMaterial({color:0x4f7f88,roughness:.2,metalness:.4,emissive:0x10303a,emissiveIntensity:.18});
+    const qtx=windowTex(0x4f7f88,.4); qtx.repeat.set(2,7); const glass=new THREE.MeshStandardMaterial({map:qtx,emissiveMap:qtx,color:0xffffff,emissive:0x50401f,emissiveIntensity:.5,roughness:.28,metalness:.3});
     const stone=new THREE.MeshStandardMaterial({color:0xb8aa86,roughness:.8});
     for(const sx of [-1,1]){const HH=34+(sx>0?7:0); const tw=new THREE.Mesh(new THREE.BoxGeometry(11,HH,11),glass); tw.position.set(sx*7,HH/2,0); tw.castShadow=true; k.add(tw);
       const top=new THREE.Mesh(new THREE.BoxGeometry(11.2,3,6),stone); top.position.set(sx*7,HH+1.2,sx*2.4); top.rotation.x=-sx*.22; k.add(top);}
     const base=new THREE.Mesh(new THREE.BoxGeometry(21,7,9),stone); base.position.set(0,3.5,7.5); base.castShadow=true; k.add(base);
     k.position.set(wx,0,wz); return k;}
   function mkCentrium(wx,wz){const k=new THREE.Group();
-    const glass=new THREE.MeshStandardMaterial({color:0x2f5f7a,roughness:.18,metalness:.45,emissive:0x0e2a38,emissiveIntensity:.22});
+    const ctx=windowTex(0x2f5f7a,.45); ctx.repeat.set(3,7); const glass=new THREE.MeshStandardMaterial({map:ctx,emissiveMap:ctx,color:0xffffff,emissive:0x5a4622,emissiveIntensity:.5,roughness:.3,metalness:.3});
     const body=new THREE.Mesh(new THREE.BoxGeometry(13,30,13),glass); body.position.y=15; body.castShadow=true; k.add(body);
+    const cpod=new THREE.Mesh(new THREE.BoxGeometry(16,3.4,16),new THREE.MeshStandardMaterial({color:0x1c2026,roughness:.8})); cpod.position.y=1.7; cpod.castShadow=true; k.add(cpod);
+    const clob=new THREE.Mesh(new THREE.BoxGeometry(14.4,.9,14.4),new THREE.MeshStandardMaterial({color:0x2a2416,emissive:0xffd98a,emissiveIntensity:.7,roughness:.5})); clob.position.y=2.6; k.add(clob);
+    const ccap=new THREE.Mesh(new THREE.BoxGeometry(13.6,1.2,13.6),new THREE.MeshStandardMaterial({color:0x1c2026,roughness:.8})); ccap.position.y=30.7; ccap.castShadow=true; k.add(ccap);
+    const cbc=new THREE.Mesh(new THREE.SphereGeometry(.45,8,6),new THREE.MeshStandardMaterial({color:0x330a08,emissive:0xff3b2a,emissiveIntensity:1.4})); cbc.position.y=32.6; k.add(cbc);
     const lat=new THREE.MeshStandardMaterial({color:0x3fae6a,emissive:0x1c5a32,emissiveIntensity:.4,roughness:.5});
     for(let i=0;i<9;i++){const y=3+i*3.2; for(const d of[-1,1]){const bar=new THREE.Mesh(new THREE.BoxGeometry(.4,3.4,.3),lat); bar.position.set(0,y,6.6); bar.rotation.z=d*.72; k.add(bar);}}
     k.position.set(wx,0,wz); return k;}
