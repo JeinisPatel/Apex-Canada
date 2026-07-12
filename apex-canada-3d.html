@@ -47,7 +47,7 @@
     .trow .tg{margin-left:auto;color:#c2cedb;font-variant-numeric:tabular-nums}
     .trow.me{border-color:var(--accent);background:rgba(10,22,22,.44);box-shadow:0 0 12px rgba(57,210,192,.25)}
     .trow.me .tg{color:var(--ink)}
-    body.touch #tower{right:6px;top:150px;font-size:9px;gap:2px}
+    body.touch #tower{right:6px;top:196px;font-size:9px;gap:2px}
     body.touch .trow{min-width:102px;padding:2px 6px 2px 4px;gap:4px;border-radius:6px}
     body.touch .trow .tp{width:11px}
     body.touch .trow .tc{height:10px;width:3px}
@@ -153,6 +153,11 @@
   body.touch #standings{top:50%;bottom:auto;right:auto;left:calc(env(safe-area-inset-left,0px) + 10px);transform:translateY(-50%);width:150px;background:rgba(10,13,18,.30);backdrop-filter:blur(12px)}
   body.touch #menubtn{padding:8px 11px;font-size:11px;background:rgba(9,12,18,.34)}
   body.touch #modes button,body.touch #tracks button{background:rgba(9,12,18,.42)}
+  body.touch #modes,body.touch #tracks{left:8px;right:8px;max-width:none;width:auto;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;padding-right:14px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  body.touch #modes::-webkit-scrollbar,body.touch #tracks::-webkit-scrollbar{display:none}
+  body.touch #modes{top:118px}
+  body.touch #tracks{top:154px}
+  body.touch #modes button,body.touch #tracks button{font-size:9px;padding:5px 7px;letter-spacing:.03em;flex-shrink:0;white-space:nowrap}
   #standings{position:absolute;z-index:6;top:128px;right:14px;width:190px;background:rgba(10,13,18,.62);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:9px 11px;backdrop-filter:blur(8px);font-family:'Saira',system-ui,sans-serif}
   #standings .st-h{font-size:10px;letter-spacing:.22em;color:#8b95a3;font-weight:800;margin-bottom:6px}
   .st-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;color:#e7edf2}
@@ -1060,6 +1065,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v86 — mobile menu scrollers (portrait fix) + bigger, denser grandstands */
 /* BUILD v85 — trackside life: grandstands with crowds, marshal posts, waving flags */
 /* BUILD v84 — persistent skid marks + rubbered-in racing groove */
 /* BUILD v83 — mockup silhouette ported into createCar: sculpted body on the existing footprint */
@@ -1163,10 +1169,11 @@ const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45
   cand.sort((a,b)=>a[0]-b[0]);
   const spots=[];
   for(const [,t] of cand){
-    if(spots.length>=4)break;
-    if(spots.every(s=>{ const d=Math.abs(s-t); return Math.min(d,1-d)>0.14; }))spots.push(t);
+    if(spots.length>=7)break;
+    if(spots.every(s=>{ const d=Math.abs(s-t); return Math.min(d,1-d)>0.09; }))spots.push(t);
   }
-  spots.forEach((t,i)=>placeAt(grandstand(),t,ROAD_W/2+9.5,(i%2===0)?1:-1));
+  spots.forEach((t,i)=>{ const st=grandstand(); st.scale.setScalar(1.25); placeAt(st,t,ROAD_W/2+7.5,(i%2===0)?1:-1); });
+  if(typeof window!=='undefined')window.TRACKSIDE_SPOTS=spots.slice();
   /* marshal posts every eighth of a lap, alternating sides */
   const FLAG_KINDS=['#ffd23a','#3a7fe8','#3ecf6e','#ffd23a'];
   for(let i=0;i<8;i++){
