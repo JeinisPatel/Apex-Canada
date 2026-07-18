@@ -627,11 +627,33 @@ for(const [x,y] of raw){_mnx=Math.min(_mnx,x);_mxx=Math.max(_mxx,x);_mny=Math.mi
 const OFFSET = new THREE.Vector3(-((_mnx+_mxx)/2)*SCALE, 0, -((_mny+_mxy)/2)*SCALE);  // auto-centre this circuit at origin
 const curve = new THREE.CatmullRomCurve3(raw.map(([x,y]) => new THREE.Vector3(x*SCALE+OFFSET.x,0,y*SCALE+OFFSET.z)), true, 'catmullrom', 0.45);
 
+/* Calgary skyline reveal corridors: long, gentle sightlines rather than roadside scenery. */
+const CALGARY_CITY_FOCUS=new THREE.Vector3(1530*SCALE+OFFSET.x,38,1280*SCALE+OFFSET.z);
+/* A geographically stable water target per coastal circuit. It is used only for subtle
+   sightline composition and tree thinning; steering and the racing line never move. */
+const COASTAL_FOCUS_RAW={harbour:[1660,3180],sidney:[2380,2260],malahat:[1080,1400],cordova:[3120,1500]};
+const _coastRaw=COASTAL_FOCUS_RAW[TRACK_ID];
+const COASTAL_WATER_FOCUS=_coastRaw?new THREE.Vector3(_coastRaw[0]*SCALE+OFFSET.x,2.5,_coastRaw[1]*SCALE+OFFSET.z):null;
+function revealWindow(t,a,b,edge){
+  if(t<=a||t>=b)return 0;edge=edge||.03;
+  const up=Math.min(Math.max((t-a)/edge,0),1),dn=Math.min(Math.max((b-t)/edge,0),1);
+  return Math.min(up*up*(3-2*up),dn*dn*(3-2*dn));
+}
+function calgaryRevealAt(t){
+  if(TRACK_ID!=='stampede')return 0;
+  return Math.max(revealWindow(t,.245,.405,.035),revealWindow(t,.755,.935,.04));
+}
+
 /* ---------- elevation: only The Malahat climbs; harbour/gorge/sidney/cordova stay mathematically flat (v56 invariant) ---------- */
 const ELEV_SCALE = SCALE * 0.62;                                                                 // hill height vs v56 units (tunable)
 const CLIMB=(circuit.climb||0)*ELEV_SCALE, ROLL=(circuit.roll||0)*ELEV_SCALE;
 const LAPLEN = curve.getLength();
-function elevAt(t){ return CLIMB*(0.5-0.5*Math.cos(2*Math.PI*t)) + ROLL*Math.sin(6*Math.PI*t); }  // ported: 340*(0.5-0.5cos2u)+32*sin6u
+function elevAt(t){
+  const h=CLIMB*(0.5-0.5*Math.cos(2*Math.PI*t)) + ROLL*Math.sin(6*Math.PI*t);                     // ported: 340*(0.5-0.5cos2u)+32*sin6u
+  /* The Malahat's roll term briefly went negative near the lap seam, burying the asphalt
+     under the grass plane. This smooth positive floor keeps the climb natural without a bump. */
+  return CLIMB ? .5*(h+Math.sqrt(h*h+.0225)) : 0;
+}
 function roadY(t){ return .35*Math.sin(t*Math.PI*12) + elevAt(t); }
 function gradeAt(t){ const d=0.004; return elevAt((t+d)%1) - elevAt((t-d+1)%1); }                 // rise over ~0.008 lap (for car pitch)
 const GROUND_Y=-0.42;
@@ -657,19 +679,22 @@ const WATER_GORGE=[
 ];
 const WATER_SIDNEY=[
   /* the Salish Sea along the Sidney seafront (the open water the loop hugs on the lower right) */
-  [[1640,1700],[2160,1640],[2420,1760],[2480,2040],[2300,2320],[1860,2380],
-   [1500,2300],[1380,2040],[1480,1820]],
+  [[1580,1640],[2180,1580],[2500,1740],[2580,2060],[2340,2400],[1840,2480],
+   [1420,2380],[1300,2040],[1420,1760]],
+  /* continuation to the open Salish Sea, safely below the road where the coast loop crosses */
+  [[2340,2400],[2580,2060],[4320,1940],[4520,3300],[4180,4300],[720,4300],
+   [720,2780],[1420,2380],[1840,2480]],
   /* a northern inlet toward Swartz Bay (where the ferries berth) */
-  [[2520,560],[2700,620],[2720,940],[2560,1120],[2440,920],[2480,700]],
+  [[2480,500],[2920,500],[3180,720],[3140,1120],[2760,1300],[2460,960],[2440,700]],
 ];
 const WATER_MALAHAT=[
   /* Finlayson Arm / Saanich Inlet \u2014 the fjord in the valley the pass climbs above */
-  [[980,720],[1180,760],[1240,1040],[1160,1360],[1260,1640],[1180,1900],
-   [1000,1980],[860,1760],[960,1460],[880,1160],[940,900]],
+  [[900,660],[1240,700],[1320,1000],[1270,1320],[1340,1620],[1260,1980],
+   [1040,2070],[800,1840],[850,1480],[790,1160],[840,840]],
 ];
 const WATER_CORDOVA=[
   /* Haro Strait \u2014 the open sea east of the seafront, with the San Juan Islands beyond */
-  [[2380,480],[2770,450],[2820,1180],[2790,1980],[2700,2560],[2400,2580],
+  [[2380,480],[3880,260],[4440,680],[4520,2180],[4100,2940],[2400,2580],
    [2360,2060],[2400,1520],[2350,1020]],
 ];
 const LAND_HARBOUR=[
@@ -713,16 +738,16 @@ const LAND_HARBOUR=[
 ];
 /* ---- The Gorge world: its own landmarks, evoking the waterway's real character ---- */
 const LAND_GORGE=[
-  {x:1652,y:600,t:"trestle", label:"Bay Street Bridge"},      /* steel truss bascule bridge over the waterway */
-  {x:2088,y:497, t:"pavilion",label:"Gorge Park Pavilion"},  /* Esquimalt Gorge Park + Japanese garden */
+  {x:1652,y:600,t:"baybridge", label:"Bay Street Bridge"},   /* steel truss bascule bridge over the waterway */
+  {x:2088,y:497, t:"gorgepav",label:"Gorge Park Pavilion"},  /* cedar-and-glass pavilion beside the Japanese garden */
   {x:1001,y:1298,t:"golf",   label:"Gorge Vale Golf Club"},
   {x:2240,y:1500,t:"trail",  label:"Galloping Goose Trail"}, /* the cycling/walking trail marker */
   {x:880, y:900, t:"heritage",label:"Point Ellice House"},   /* heritage house + gardens by the water */
-  {x:1647,y:1989,t:"tilli",  label:"Tillicum Narrows"},      /* the reversing falls under the bridge */
+  {x:1647,y:1989,t:"tillibridge",label:"Tillicum Narrows"},  /* the reversing falls under the bridge */
   {x:700, y:1180,t:"school", label:"Craigflower Schoolhouse"},
   {x:421, y:1457,t:"vircc",  label:"VIRCC"},   /* the historic red-brick remand centre */
   {x:1602,y:1363,t:"boathouse",label:"Rowing Club"},
-  {x:2180,y:820, t:"torii",  label:""},                      /* Takata Japanese garden */
+  {x:2180,y:820, t:"jgarden",label:""},                      /* Takata Japanese garden */
   {x:692, y:1567,t:"oak",    label:"",ph:0.0},
   {x:2325,y:1915,t:"oak",    label:"",ph:1.0},
   {x:1000,y:2080,t:"oak",    label:"",ph:2.0},
@@ -746,15 +771,16 @@ const LAND_GORGE=[
 /* ---- The Peninsula: Sidney, the airport (YYJ) + the ferries ---- */
 const LAND_SIDNEY=[
   /* the airport — the centerpiece of the run */
-  {x:1226,y:1061,t:"terminal",label:"Victoria Int'l Airport"},
-  {x:1150,y:1104,t:"airtower",label:""},                     /* the control tower */
+  {x:1226,y:1061,t:"yyjterminal",label:"Victoria Int'l Airport"},
+  {x:1150,y:1104,t:"yyjtower",label:""},                     /* the control tower */
   {x:1858,y:1047,t:"airliner",label:"",ph:0.0},              /* a parked jet at the apron */
   {x:1180,y:760, t:"depart",  label:"",ph:0.0},              /* a departing jet climbing out */
   /* Sidney by the sea */
-  {x:1920,y:2043,t:"pier",   label:"Sidney Pier",sea:true},  /* the fishing pier into the sea */
-  {x:2293,y:1686,t:"shaw",   label:"Shaw Centre"},           /* the Salish Sea aquarium */
+  {x:1920,y:2043,t:"sidneypier",label:"Sidney Pier",sea:true},
+  {x:2293,y:1686,t:"shawcentre",label:"Shaw Centre"},        /* the Salish Sea aquarium */
+  {x:2080,y:1920,t:"beaconpark",label:"Beacon Park"},
   /* Swartz Bay ferries (north inlet) */
-  {x:2394,y:617,t:"ferryt", label:"Swartz Bay"},            /* the BC Ferries terminal */
+  {x:2394,y:617,t:"swartzterminal",label:"Swartz Bay"},     /* the BC Ferries terminal */
   {x:2373,y:646,t:"ferry",  label:"",sea:true,ph:0.0},      /* a ferry on the water */
   /* the rural Saanich Peninsula */
   {x:1100,y:908,t:"barn",   label:"Peninsula Farm"},        /* a red barn + silo */
@@ -776,7 +802,11 @@ const LAND_SIDNEY=[
 const LAND_MALAHAT=[
   /* the summit ridge \u2014 the SkyWalk + a lookout high over the inlet */
   {x:1400,y:680, t:"skywalk", label:"Malahat SkyWalk"},
-  {x:1780,y:660, t:"lookout", label:"Summit Lookout"},
+  {x:1780,y:660, t:"finlookout",label:"Summit Lookout"},
+  {x:0,y:0,t:"rockcut",roadT:.20,roadOff:-28,label:""},
+  {x:0,y:0,t:"rockcut",roadT:.51,roadOff:29,label:""},
+  {x:0,y:0,t:"rockcut",roadT:.77,roadOff:-28,label:""},
+  {x:0,y:0,t:"goldstream",roadT:.93,roadOff:29,label:"Goldstream Park"},
   /* distant peaks across Saanich Inlet */
   {x:850, y:60,  t:"peak",    label:""},
   {x:1500,y:10,  t:"peak",    label:""},
@@ -824,6 +854,8 @@ const LAND_CORDOVA=[
   {x:2345,y:1500,t:"beach",   label:"Cordova Bay Beach"},
   {x:2350,y:1050,t:"beach",   label:""},
   {x:2348,y:1980,t:"beach",   label:""},
+  {x:1740,y:1480,t:"cordovavillage",label:"Cordova Bay Village"},
+  {x:2180,y:1530,t:"cordovapark",label:"Cordova Bay Park"},
   {x:1910,y:1300,t:"cottage", label:""},
   {x:1900,y:1720,t:"cottage", label:""},
   {x:1925,y:880, t:"cottage", label:""},
@@ -984,6 +1016,8 @@ const LAND_BANFF=[
   {x:0,y:0, t:"springs",    roadT:0.13,  roadOff:-34, label:"Banff Springs"},
   {x:0,y:0, t:"rimrock",    roadT:0.90,  roadOff:44,  label:"Rimrock"},
   {x:0,y:0, t:"gondola",    roadT:0.86,  roadOff:44, faceOut:true, label:"Sulphur Gondola"},
+  {x:0,y:0, t:"bowbridge",  roadT:0.19,  roadOff:27, label:"Bow River Bridge"},
+  {x:0,y:0, t:"cascadegarden",roadT:0.23,roadOff:-39,label:"Cascade Gardens"},
   /* montane spruce + lodgepole pine through the wildlife corridor (road-guarded) */
   {x:1500,y:1100, t:"fir", label:"", ph:0.0},
   {x:1850,y:1350, t:"fir", label:"", ph:0.7},
@@ -1187,6 +1221,9 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v99 — BC coastal reveal pass: Malahat road-floor fix and longer ocean sightlines */
+/* BUILD v98 — remaining Canadian identity pass: Malahat, Sidney, Gorge, Cordova Bay and Banff */
+/* BUILD v97 — Calgary skyline visibility: reveal corridors, taller silhouette, protected downtown sightlines */
 /* BUILD v96 — Victoria fidelity: Parliament/Empress refinements, working harbour, blue bascule bridge, Olympic horizon */
 /* BUILD v95.1 — Toronto landmark road-clearance guard */
 /* BUILD v95 — Toronto fidelity: Exhibition Place landmarks and downtown skyline */
@@ -1303,6 +1340,7 @@ const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45
   const spots=[];
   for(const [,t] of cand){
     if(spots.length>=7)break;
+    if(TRACK_ID==='stampede'&&calgaryRevealAt(t)>.02)continue;           // keep Calgary's two downtown sightlines open
     if(spots.every(s=>{ const d=Math.abs(s-t); return Math.min(d,1-d)>0.09; }))spots.push(t);
   }
   spots.forEach((t,i)=>{ const st=grandstand(); st.scale.setScalar(1.25); placeAt(st,t,ROAD_W/2+7.5,(i%2===0)?1:-1); });
@@ -2046,6 +2084,80 @@ function buildWorld(){
     for(const x of[-12,-4,4,12]){const finger=new THREE.Mesh(new THREE.BoxGeometry(1.5,.32,17),wood);finger.position.set(x,.1,5.8);k.add(finger);}
     for(let i=0;i<7;i++){const x=-13.5+i*4.5,z=4+(i%2)*5.3,boat=new THREE.Group(),hull=new THREE.Mesh(new THREE.BoxGeometry(2.3,.75,5.2),new THREE.MeshStandardMaterial({color:i%3===0?0xb63f3f:0xe3e8eb,roughness:.58}));hull.position.y=.42;boat.add(hull);const mast=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,8.5,6),mastMat);mast.position.y=4.6;boat.add(mast);const sail=new THREE.Mesh(new THREE.ConeGeometry(2.2,6.4,3),white);sail.position.set(.8,4.5,0);sail.rotation.y=Math.PI/2;sail.scale.z=.10;boat.add(sail);boat.position.set(x,0,z);boat.rotation.y=(i%2?Math.PI:0);k.add(boat);const by=boat.position.y;ANIM.push(t=>{boat.position.y=by+Math.sin(t*.8+i)*.10;});}
     k.rotation.y=.08;k.position.set(wx,-.03,wz);return k;}
+  function mkGorgePavilion(wx,wz){const k=new THREE.Group();
+    const cedar=new THREE.MeshStandardMaterial({color:0x9a6c3f,roughness:.72}),glass=new THREE.MeshStandardMaterial({color:0x456f79,roughness:.22,metalness:.22,transparent:true,opacity:.72}),roof=new THREE.MeshStandardMaterial({color:0x303b39,roughness:.66});
+    const lower=new THREE.Mesh(new THREE.BoxGeometry(30,5.8,17),glass);lower.position.y=2.9;lower.castShadow=true;k.add(lower);const upper=new THREE.Mesh(new THREE.BoxGeometry(27,5.8,16),glass);upper.position.y=8.7;upper.castShadow=true;k.add(upper);
+    for(const x of[-13,-6.5,0,6.5,13])for(const z of[-8,8]){const post=new THREE.Mesh(new THREE.BoxGeometry(.45,12,.45),cedar);post.position.set(x,6,z);k.add(post);}
+    for(const y of[5.8,11.6]){const beam=new THREE.Mesh(new THREE.BoxGeometry(33,.55,18.5),cedar);beam.position.y=y;k.add(beam);}
+    const cap=new THREE.Mesh(new THREE.ConeGeometry(22,5.0,4),roof);cap.rotation.y=Math.PI/4;cap.scale.z=.48;cap.position.y=14.2;cap.castShadow=true;k.add(cap);
+    const balcony=new THREE.Mesh(new THREE.BoxGeometry(32,.35,4),cedar);balcony.position.set(0,6.1,10);k.add(balcony);
+    k.rotation.y=.16;k.position.set(wx,0,wz);return k;}
+  function mkJapaneseGarden(wx,wz){const k=new THREE.Group();
+    const lawn=new THREE.Mesh(new THREE.CircleGeometry(25,30),new THREE.MeshStandardMaterial({color:0x315d36,roughness:.96}));lawn.rotateX(-Math.PI/2);lawn.position.y=.03;k.add(lawn);
+    const pond=new THREE.Mesh(new THREE.CircleGeometry(9,24),new THREE.MeshStandardMaterial({color:0x315d69,roughness:.22,metalness:.16}));pond.rotateX(-Math.PI/2);pond.scale.x=1.45;pond.position.set(3,.10,2);k.add(pond);
+    const red=new THREE.MeshStandardMaterial({color:0x9f342c,roughness:.62}),wood=new THREE.MeshStandardMaterial({color:0x76512f,roughness:.86});
+    const bridge=new THREE.Mesh(new THREE.BoxGeometry(10,.7,2.4),red);bridge.position.set(3,1.2,2);bridge.rotation.z=.08;k.add(bridge);for(const x of[-5,5]){const rail=new THREE.Mesh(new THREE.BoxGeometry(.35,2.1,3),red);rail.position.set(3+x,2,2);k.add(rail);}
+    for(const sx of[-1,1]){const post=new THREE.Mesh(new THREE.BoxGeometry(.55,7,.55),red);post.position.set(-11+sx*3.4,3.5,-9);k.add(post);}const lintel=new THREE.Mesh(new THREE.BoxGeometry(9,.8,1),red);lintel.position.set(-11,7,-9);k.add(lintel);const cap=new THREE.Mesh(new THREE.BoxGeometry(11,.45,1.4),red);cap.position.set(-11,8,-9);k.add(cap);
+    for(let i=0;i<8;i++){const a=i/8*Math.PI*2,tr=(i%2?mkOak:mkFir)(Math.cos(a)*19,Math.sin(a)*19,.65+(i%3)*.12);k.add(tr);}
+    for(let i=0;i<6;i++){const step=new THREE.Mesh(new THREE.CylinderGeometry(.8,.9,.18,10),wood);step.position.set(-6+i*2.4,.12,-2+Math.sin(i)*2);k.add(step);}
+    k.position.set(wx,0,wz);return k;}
+  function mkGorgeBridge(wx,wz,kind){const k=new THREE.Group(),modern=kind==='tillicum';
+    const steel=new THREE.MeshStandardMaterial({color:modern?0x6c7780:0x4f7180,roughness:.48,metalness:.34}),deckMat=new THREE.MeshStandardMaterial({color:0x33383e,roughness:.88}),stone=new THREE.MeshStandardMaterial({color:0x8b8c87,roughness:.86});
+    const deck=new THREE.Mesh(new THREE.BoxGeometry(modern?38:34,1.2,7),deckMat);deck.position.y=5;deck.castShadow=true;k.add(deck);
+    for(const sx of[-15,15]){const p=new THREE.Mesh(new THREE.BoxGeometry(2.4,9,8),stone);p.position.set(sx,1.4,0);p.castShadow=true;k.add(p);}
+    if(modern){for(const z of[-3.4,3.4]){const rail=new THREE.Mesh(new THREE.BoxGeometry(38,.65,.35),steel);rail.position.set(0,6.2,z);k.add(rail);}const arch=new THREE.Mesh(new THREE.TorusGeometry(13,.55,8,28,Math.PI),steel);arch.position.y=5.8;arch.rotation.y=Math.PI/2;k.add(arch);}
+    else for(const z of[-3.4,3.4]){for(let i=0;i<8;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(5.2,.32,.34),steel);b.position.set(-14+i*4,9,z);b.rotation.z=i%2?.82:-.82;k.add(b);}const top=new THREE.Mesh(new THREE.BoxGeometry(34,.5,.45),steel);top.position.set(0,12,z);k.add(top);}
+    k.position.set(wx,0,wz);return k;}
+  function mkYYJTerminal(wx,wz){const k=new THREE.Group();
+    const stone=new THREE.MeshStandardMaterial({color:0x9b978b,roughness:.76}),glass=new THREE.MeshStandardMaterial({color:0x416b7a,roughness:.25,metalness:.25,emissive:0x1f3540,emissiveIntensity:.28}),roof=new THREE.MeshStandardMaterial({color:0x39434a,roughness:.55,metalness:.2});
+    const hall=new THREE.Mesh(new THREE.BoxGeometry(43,9,20),stone);hall.position.y=4.5;hall.castShadow=true;k.add(hall);const front=new THREE.Mesh(new THREE.BoxGeometry(34,6,.35),glass);front.position.set(0,4,10.15);k.add(front);
+    const canopy=new THREE.Mesh(new THREE.BoxGeometry(45,.55,7),roof);canopy.position.set(0,9.4,6.8);canopy.rotation.x=-.04;k.add(canopy);
+    for(let i=0;i<5;i++){const jetway=new THREE.Mesh(new THREE.BoxGeometry(2.4,2.2,10),new THREE.MeshStandardMaterial({color:0xc8c9c6,roughness:.68}));jetway.position.set(-16+i*8,3,-14);k.add(jetway);}
+    const sign=new THREE.Mesh(new THREE.BoxGeometry(15,1.2,.3),new THREE.MeshStandardMaterial({color:0x294f6d,emissive:0x16334b,emissiveIntensity:.5}));sign.position.set(0,8,10.5);k.add(sign);
+    k.rotation.y=-.10;k.position.set(wx,0,wz);return k;}
+  function mkYYJTower(wx,wz){const k=new THREE.Group(),concrete=new THREE.MeshStandardMaterial({color:0xb1b3af,roughness:.76}),glass=new THREE.MeshStandardMaterial({color:0x244956,roughness:.24,metalness:.35,emissive:0x17323d,emissiveIntensity:.32});
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(2.1,3.5,25,10),concrete);shaft.position.y=12.5;shaft.castShadow=true;k.add(shaft);const cab=new THREE.Mesh(new THREE.CylinderGeometry(5.4,4.4,4.2,12),glass);cab.position.y=25.5;k.add(cab);const roof=new THREE.Mesh(new THREE.CylinderGeometry(5.7,5.7,.7,12),concrete);roof.position.y=28;k.add(roof);const mast=new THREE.Mesh(new THREE.CylinderGeometry(.08,.16,6,7),concrete);mast.position.y=31;k.add(mast);k.position.set(wx,0,wz);return k;}
+  function mkAirliner(wx,wz,departing){const k=new THREE.Group(),white=new THREE.MeshStandardMaterial({color:0xe7eaeb,roughness:.45,metalness:.12}),blue=new THREE.MeshStandardMaterial({color:0x285d87,roughness:.42}),dark=new THREE.MeshStandardMaterial({color:0x283039,roughness:.5});
+    const fus=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.0,17,14),white);fus.rotation.z=Math.PI/2;fus.castShadow=true;k.add(fus);const nose=new THREE.Mesh(new THREE.ConeGeometry(1.18,3,14),white);nose.rotation.z=-Math.PI/2;nose.position.x=10;k.add(nose);
+    const wing=new THREE.Mesh(new THREE.BoxGeometry(5,.24,22),blue);wing.position.x=-1;k.add(wing);const tail=new THREE.Mesh(new THREE.BoxGeometry(4,.2,8),blue);tail.position.x=-7;k.add(tail);const fin=new THREE.Mesh(new THREE.BoxGeometry(4,4,.3),blue);fin.position.set(-7,1.8,0);fin.rotation.z=-.28;k.add(fin);
+    for(const z of[-4.5,4.5]){const eng=new THREE.Mesh(new THREE.CylinderGeometry(.75,.9,3.2,12),dark);eng.rotation.z=Math.PI/2;eng.position.set(1,-.7,z);k.add(eng);}k.position.set(wx,departing?28:1.5,wz);k.rotation.y=-.28;
+    if(departing){const ph=1.1;ANIM.push(t=>{const a=t*.035+ph;k.position.set(wx+Math.cos(a)*150,28+((a%(Math.PI*2))/Math.PI)*20,wz+Math.sin(a)*150);k.rotation.y=-a-Math.PI/2;k.rotation.z=.10;});}return k;}
+  function mkSidneyPier(wx,wz){const k=new THREE.Group(),wood=new THREE.MeshStandardMaterial({color:0x76573b,roughness:.88}),white=new THREE.MeshStandardMaterial({color:0xe3e2db,roughness:.68}),roof=new THREE.MeshStandardMaterial({color:0x34596a,roughness:.58});
+    const deck=new THREE.Mesh(new THREE.BoxGeometry(6,.55,42),wood);deck.position.y=1;k.add(deck);for(const z of[-18,-9,0,9,18])for(const x of[-2.5,2.5]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.22,.27,5,7),wood);p.position.set(x,-.8,z);k.add(p);}
+    const house=new THREE.Mesh(new THREE.BoxGeometry(11,5,9),white);house.position.set(0,3.6,17);house.castShadow=true;k.add(house);const cap=new THREE.Mesh(new THREE.ConeGeometry(8,4,4),roof);cap.rotation.y=Math.PI/4;cap.scale.z=.75;cap.position.set(0,8.1,17);k.add(cap);
+    for(const x of[-2.8,2.8]){const rail=new THREE.Mesh(new THREE.BoxGeometry(.15,1.2,39),white);rail.position.set(x,2,0);k.add(rail);}
+    k.position.set(wx,-.1,wz);return k;}
+  function mkShawCentre(wx,wz){const k=new THREE.Group(),glass=new THREE.MeshStandardMaterial({color:0x3a7180,roughness:.24,metalness:.26,transparent:true,opacity:.82}),stone=new THREE.MeshStandardMaterial({color:0xaba89d,roughness:.78}),blue=new THREE.MeshStandardMaterial({color:0x1f5d72,emissive:0x123844,emissiveIntensity:.42});
+    const base=new THREE.Mesh(new THREE.BoxGeometry(27,7,18),stone);base.position.y=3.5;base.castShadow=true;k.add(base);const wave=new THREE.Mesh(new THREE.CylinderGeometry(10,10,8,20,1,false,0,Math.PI),glass);wave.rotation.z=Math.PI/2;wave.rotation.y=Math.PI/2;wave.position.set(0,8,0);k.add(wave);
+    const front=new THREE.Mesh(new THREE.BoxGeometry(22,5,.4),glass);front.position.set(0,4,9.2);k.add(front);for(let i=0;i<4;i++){const fin=new THREE.Mesh(new THREE.BoxGeometry(.35,12,19),blue);fin.position.set(-9+i*6,6,0);fin.rotation.z=.08*(i-1.5);k.add(fin);}k.position.set(wx,0,wz);return k;}
+  function mkBeaconPark(wx,wz){const k=new THREE.Group(),lawn=new THREE.MeshStandardMaterial({color:0x3c6b3c,roughness:.96}),wood=new THREE.MeshStandardMaterial({color:0x8a6038,roughness:.82}),white=new THREE.MeshStandardMaterial({color:0xe7e3d7,roughness:.72});
+    const green=new THREE.Mesh(new THREE.CircleGeometry(32,30),lawn);green.rotateX(-Math.PI/2);green.position.y=.02;k.add(green);const walk=new THREE.Mesh(new THREE.BoxGeometry(56,.2,5),new THREE.MeshStandardMaterial({color:0xb3b0a7,roughness:.9}));walk.position.set(0,.12,19);k.add(walk);
+    const stage=new THREE.Mesh(new THREE.BoxGeometry(15,2.2,7),wood);stage.position.set(-10,1.1,-7);k.add(stage);const shell=new THREE.Mesh(new THREE.SphereGeometry(9,20,10,0,Math.PI,0,Math.PI/2),white);shell.scale.set(1,.72,.55);shell.rotation.y=Math.PI/2;shell.position.set(-10,2,-10);k.add(shell);
+    for(let i=0;i<6;i++){const lamp=new THREE.Mesh(new THREE.CylinderGeometry(.08,.11,5,6),new THREE.MeshStandardMaterial({color:0x30383c,metalness:.4,roughness:.5}));lamp.position.set(-24+i*9.6,2.5,18);k.add(lamp);}
+    k.position.set(wx,0,wz);return k;}
+  function mkSwartzTerminal(wx,wz){const k=new THREE.Group(),concrete=new THREE.MeshStandardMaterial({color:0x8e9598,roughness:.78}),blue=new THREE.MeshStandardMaterial({color:0x28658a,roughness:.48,metalness:.22}),deck=new THREE.MeshStandardMaterial({color:0x4c5257,roughness:.86});
+    for(const x of[-14,0,14]){const berth=new THREE.Mesh(new THREE.BoxGeometry(8,.6,31),deck);berth.position.set(x,.4,4);k.add(berth);const ramp=new THREE.Mesh(new THREE.BoxGeometry(6,.5,17),blue);ramp.position.set(x,2,-8);ramp.rotation.x=-.10;k.add(ramp);for(const z of[-10,5,18]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.25,.32,5,7),concrete);p.position.set(x,-.8,z);k.add(p);}}
+    const hall=new THREE.Mesh(new THREE.BoxGeometry(48,7,12),concrete);hall.position.set(0,3.5,-19);hall.castShadow=true;k.add(hall);const sign=new THREE.Mesh(new THREE.BoxGeometry(18,1.1,.35),blue);sign.position.set(0,6,-12.9);k.add(sign);k.position.set(wx,0,wz);return k;}
+  function mkFinlaysonLookout(wx,wz){const k=new THREE.Group(),wood=new THREE.MeshStandardMaterial({color:0x8b673f,roughness:.86}),steel=new THREE.MeshStandardMaterial({color:0x4b555a,roughness:.48,metalness:.35});
+    const deck=new THREE.Mesh(new THREE.CylinderGeometry(12,13,.7,18),wood);deck.position.y=4.5;deck.castShadow=true;k.add(deck);for(let i=0;i<10;i++){const a=i/10*Math.PI*2,p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.22,5,6),wood);p.position.set(Math.cos(a)*10,2.2,Math.sin(a)*10);k.add(p);const rail=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,6,5),steel);rail.position.set(Math.cos(a)*11,6.1,Math.sin(a)*11);k.add(rail);}
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(11,.12,6,30),steel);ring.rotation.x=Math.PI/2;ring.position.y=7;k.add(ring);for(const x of[-4,4]){const scope=new THREE.Mesh(new THREE.CylinderGeometry(.35,.55,2.4,8),steel);scope.rotation.z=Math.PI/2;scope.position.set(x,7.6,-2);k.add(scope);}
+    k.position.set(wx,0,wz);return k;}
+  function mkRockCut(wx,wz){const k=new THREE.Group(),rock=new THREE.MeshStandardMaterial({color:0x665f55,roughness:.98,flatShading:true}),moss=new THREE.MeshStandardMaterial({color:0x3f5235,roughness:.98});
+    for(let i=0;i<11;i++){const h=8+((i*17)%9),b=new THREE.Mesh(new THREE.DodecahedronGeometry(4.8+((i*13)%4),0),i%4===0?moss:rock);b.scale.set(1.25,h/9,.65);b.position.set(-24+i*4.8,h*.42,(i%2)*1.8);b.rotation.set((i%3)*.11,(i*37)%9*.14,(i%2?-.08:.08));b.castShadow=true;k.add(b);}k.position.set(wx,0,wz);return k;}
+  function mkGoldstreamGate(wx,wz){const k=new THREE.Group(),stone=new THREE.MeshStandardMaterial({color:0x777268,roughness:.92}),wood=new THREE.MeshStandardMaterial({color:0x68452d,roughness:.86}),green=new THREE.MeshStandardMaterial({color:0x31563a,roughness:.72});
+    for(const x of[-7,7]){const p=new THREE.Mesh(new THREE.BoxGeometry(2.4,6,3),stone);p.position.set(x,3,0);p.castShadow=true;k.add(p);}const sign=new THREE.Mesh(new THREE.BoxGeometry(13,3.4,1),wood);sign.position.y=6.3;k.add(sign);const leaf=new THREE.Mesh(new THREE.CircleGeometry(1.1,9),green);leaf.position.set(0,6.3,.55);k.add(leaf);for(const x of[-13,13]){const tree=mkFir(x,0,1.15);k.add(tree);}k.position.set(wx,0,wz);return k;}
+  function mkCordovaVillage(wx,wz){const k=new THREE.Group(),cols=[0xc7b18e,0x9d634c,0xb8c3bd,0xd5c9ad,0x718f87],roof=new THREE.MeshStandardMaterial({color:0x404844,roughness:.72});
+    for(let i=0;i<7;i++){const x=-25+i*8.2,h=7+(i%3)*1.3,body=new THREE.Mesh(new THREE.BoxGeometry(7.6,h,9),new THREE.MeshStandardMaterial({color:cols[i%cols.length],roughness:.8}));body.position.set(x,h/2,0);body.castShadow=true;k.add(body);const cap=new THREE.Mesh(new THREE.ConeGeometry(5.8,3.6,4),roof);cap.rotation.y=Math.PI/4;cap.scale.z=.78;cap.position.set(x,h+1.8,0);k.add(cap);const shop=new THREE.Mesh(new THREE.BoxGeometry(5.4,2,.25),new THREE.MeshStandardMaterial({color:0x315765,emissive:0x1b3640,emissiveIntensity:.28}));shop.position.set(x,2,4.6);k.add(shop);}
+    const walk=new THREE.Mesh(new THREE.BoxGeometry(62,.22,5),new THREE.MeshStandardMaterial({color:0xa8a69f,roughness:.9}));walk.position.set(0,.12,7);k.add(walk);k.rotation.y=-.12;k.position.set(wx,0,wz);return k;}
+  function mkCordovaPark(wx,wz){const k=new THREE.Group(),sand=new THREE.MeshStandardMaterial({color:0xcbbd91,roughness:.96}),lawn=new THREE.MeshStandardMaterial({color:0x416b3d,roughness:.96}),wood=new THREE.MeshStandardMaterial({color:0x8a633d,roughness:.84});
+    const beach=new THREE.Mesh(new THREE.CircleGeometry(24,28),sand);beach.rotateX(-Math.PI/2);beach.scale.z=.58;beach.position.y=.03;k.add(beach);const green=new THREE.Mesh(new THREE.BoxGeometry(45,.18,17),lawn);green.position.set(0,.05,-12);k.add(green);
+    const play=new THREE.Mesh(new THREE.BoxGeometry(9,.6,5),wood);play.position.set(-8,2,-12);play.rotation.z=-.22;k.add(play);for(const x of[-12,-4]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.16,.22,5,6),wood);p.position.set(x,2.5,-12);k.add(p);}const picnic=new THREE.Mesh(new THREE.BoxGeometry(7,.35,3),wood);picnic.position.set(10,1,-12);k.add(picnic);
+    k.position.set(wx,0,wz);return k;}
+  function mkBanffBowBridge(wx,wz){const k=new THREE.Group(),stone=new THREE.MeshStandardMaterial({color:0x8f877a,roughness:.9}),road=new THREE.MeshStandardMaterial({color:0x3f4345,roughness:.92}),lamp=new THREE.MeshStandardMaterial({color:0xffe5a6,emissive:0xffc85d,emissiveIntensity:1.0});
+    const deck=new THREE.Mesh(new THREE.BoxGeometry(39,1.2,9),road);deck.position.y=6;k.add(deck);for(const x of[-14,0,14]){const pier=new THREE.Mesh(new THREE.BoxGeometry(3.2,10,10),stone);pier.position.set(x,1,0);pier.castShadow=true;k.add(pier);}for(const z of[-4.4,4.4]){const wall=new THREE.Mesh(new THREE.BoxGeometry(39,1.3,.8),stone);wall.position.set(0,7,z);k.add(wall);}for(const x of[-16,-8,0,8,16])for(const z of[-4.4,4.4]){const post=new THREE.Mesh(new THREE.CylinderGeometry(.08,.12,4,6),stone);post.position.set(x,9,z);k.add(post);const bulb=new THREE.Mesh(new THREE.SphereGeometry(.28,7,6),lamp);bulb.position.set(x,11,z);k.add(bulb);}k.position.set(wx,0,wz);return k;}
+  function mkCascadeGarden(wx,wz){const k=new THREE.Group(),stone=new THREE.MeshStandardMaterial({color:0xa49c8c,roughness:.88}),green=new THREE.MeshStandardMaterial({color:0x3c6738,roughness:.96}),flowers=[0xc8516a,0xe3b443,0x8062b0,0xe57f45];
+    for(let r=0;r<4;r++){const terrace=new THREE.Mesh(new THREE.BoxGeometry(42-r*7,.35,8),stone);terrace.position.set(0,r*.8,-12+r*7);k.add(terrace);for(let i=0;i<5;i++){const bed=new THREE.Mesh(new THREE.CircleGeometry(1.8,10),new THREE.MeshStandardMaterial({color:flowers[(i+r)%4],roughness:.8}));bed.rotateX(-Math.PI/2);bed.position.set(-14+i*7,r*.8+.22,-12+r*7);k.add(bed);}}
+    const hall=new THREE.Mesh(new THREE.BoxGeometry(24,11,13),stone);hall.position.set(0,5.5,16);hall.castShadow=true;k.add(hall);const roof=new THREE.Mesh(new THREE.ConeGeometry(16,6,4),new THREE.MeshStandardMaterial({color:0x3d4b45,roughness:.7}));roof.rotation.y=Math.PI/4;roof.scale.z=.55;roof.position.set(0,14,16);k.add(roof);const lawn=new THREE.Mesh(new THREE.BoxGeometry(52,.15,50),green);lawn.position.set(0,-.02,4);k.add(lawn);k.position.set(wx,0,wz);return k;}
   function mkBoat(wx,wz,kind){const k=new THREE.Group();const big=kind==='big';const sc=big?2.4:kind==='small'?.6:1;
     const hull=new THREE.Mesh(new THREE.BoxGeometry(3*sc,1.4*sc,8*sc),new THREE.MeshStandardMaterial({color:big?0xe8e8ea:0xdadfe6,roughness:.6}));hull.position.y=.4;hull.castShadow=true;k.add(hull);
     if(big){const sup=new THREE.Mesh(new THREE.BoxGeometry(2.4*sc,1.6*sc,4*sc),new THREE.MeshStandardMaterial({color:0xc2c8d0}));sup.position.y=1.6;k.add(sup);}
@@ -2329,7 +2441,7 @@ function buildWorld(){
     k.position.set(wx,0,wz); ANIM.push(t=>{ wheel.rotation.z=t*.22; }); return k;}
   const MTN_T={peak:[110,80],hill:[55,55],bluff:[34,46],lookout:[26,30],cascade:[185,135],rundle:[165,150],sulphur:[150,120],sister:[120,80]};
   const BOAT_T={boat:'',sailboat:'sail',kayak:'small',rower:'small',seaplane:'small',cruise:'big',cruise2:'big',ferry:'big'};
-  const SKIP_T=['gull','gulls','geese','geeseV','heron','eagle','windsurf','swan','airliner'];
+  const SKIP_T=['gull','gulls','geese','geeseV','heron','eagle','windsurf','swan'];
   const CL=[]; for(let i=0;i<260;i++){const cp=curve.getPointAt(i/260); CL.push(cp.x,cp.z);}
   function tooClose(x,z,m){const R=m||ROAD_W*1.35; for(let j=0;j<CL.length;j+=2){const dx=CL[j]-x,dz=CL[j+1]-z; if(dx*dx+dz*dz<R*R) return true;} return false;}
   function clearLandmarkFromRoad(x,z,need){let best=0,bd=Infinity;
@@ -2339,6 +2451,13 @@ function buildWorld(){
     const q=Math.hypot(dx,dz)||1,push=need-d+2;return [x+dx/q*push,z+dz/q*push];}
   const TORONTO_CLEAR={princegates:46,enercare:48,bmofield:39,hotelx:31,bandshell:33,windturbine:21,rogers:35,cntower:22};
   const VICTORIA_CLEAR={leg:51,emp:43,johnson:38,fishwharf:36,causeway:34,marina:32,gate:18,reef:24,navy:34,light:18,mile0:14,park:45,castle:27};
+  const CALGARY_CLEAR={calcore:58,cdntower:23,thebow:30,bankers:24,saddledome:30,ferris:23,stampedegrand:47,courthouse:33,crownoffice:25};
+  const LOCAL_CLEAR={
+    gorge:{baybridge:29,gorgepav:31,golf:22,trail:15,heritage:22,tillibridge:31,school:33,vircc:39,boathouse:22,jgarden:36},
+    sidney:{yyjterminal:45,yyjtower:19,sidneypier:32,shawcentre:29,beaconpark:42,swartzterminal:43,barn:22,vineyard:24,butchart:26},
+    malahat:{skywalk:23,finlookout:24},
+    cordova:{hill:70,golf:22,barn:22,beach:22,cottage:19,cordovavillage:42,cordovapark:34}
+  };
   // ground
   const _GP=2600*Math.max(1,SCALE/0.17);
   const _grass=surfTex('#33502c',[['rgba(84,128,56,0.5)',1100,3],['rgba(50,80,38,0.55)',800,3],['rgba(112,150,70,0.34)',450,2],['rgba(26,42,20,0.5)',300,4]]); _grass.repeat.set(_GP/24,_GP/24);
@@ -2363,7 +2482,9 @@ function buildWorld(){
     const sh=new THREE.Shape();
     poly.forEach(function(pt,i){const wx=pt[0]*SCALE+OFFSET.x, wz=pt[1]*SCALE+OFFSET.z; if(i)sh.lineTo(wx,-wz); else sh.moveTo(wx,-wz);});
     const wg=new THREE.ShapeGeometry(sh); wg.rotateX(-Math.PI/2);
-    const wm=new THREE.Mesh(wg,WMAT); wm.position.y=-.35; wm.receiveShadow=true; g.add(wm);
+    /* Below the lowest flat-road ripple, but still above the terrain plane. This prevents
+       water/road z-fighting at coastal crossings while keeping an unbroken ocean surface. */
+    const wm=new THREE.Mesh(wg,WMAT); wm.position.y=-.43; wm.receiveShadow=true; g.add(wm);
   }
   // real landmarks
   function mkBanffSprings(wx,wz){
@@ -2438,16 +2559,37 @@ function buildWorld(){
     mtn.position.set(82,28,0); mtn.castShadow=true; k.add(mtn);
     k.rotation.y=2.5; k.position.set(wx,0,wz); return k;
   }
+  const SCENIC_CLEAR=[],SCENIC_RAD={gorgepav:54,jgarden:48,baybridge:42,tillibridge:42,yyjterminal:58,yyjtower:34,sidneypier:44,shawcentre:46,beaconpark:54,swartzterminal:58,skywalk:48,finlookout:42,goldstream:38,cordovavillage:60,cordovapark:48,springs:68,rimrock:48,bowbridge:44,cascadegarden:58};
   for(const l of LAND){
     const c=W2(l.x,l.y); let wx=c[0], wz=c[1], h=12, hd=null;
     if(l.roadT!=null){ const _p=curve.getPointAt(l.roadT), _tn=curve.getTangentAt(l.roadT).normalize(); let _nm=new THREE.Vector3(-_tn.z,0,_tn.x).normalize(); if(_nm.dot(_p)<0)_nm.negate(); const _o=l.roadOff||0; wx=_p.x+_nm.x*_o; wz=_p.z+_nm.z*_o; if(l.faceOut){hd=Math.atan2(-_nm.z,_nm.x);} else {const _fx=(_o>=0?-_nm.x:_nm.x),_fz=(_o>=0?-_nm.z:_nm.z); hd=Math.atan2(_fx,_fz);} }
     if(TRACK_ID==='exhibition'&&TORONTO_CLEAR[l.t]){const safe=clearLandmarkFromRoad(wx,wz,TORONTO_CLEAR[l.t]);wx=safe[0];wz=safe[1];}
     if(TRACK_ID==='harbour'&&VICTORIA_CLEAR[l.t]){const safe=clearLandmarkFromRoad(wx,wz,VICTORIA_CLEAR[l.t]);wx=safe[0];wz=safe[1];}
+    if(TRACK_ID==='stampede'&&CALGARY_CLEAR[l.t]){const safe=clearLandmarkFromRoad(wx,wz,CALGARY_CLEAR[l.t]);wx=safe[0];wz=safe[1];}
+    if(l.roadT==null&&LOCAL_CLEAR[TRACK_ID]&&LOCAL_CLEAR[TRACK_ID][l.t]){const safe=clearLandmarkFromRoad(wx,wz,LOCAL_CLEAR[TRACK_ID][l.t]);wx=safe[0];wz=safe[1];}
+    if(SCENIC_RAD[l.t])SCENIC_CLEAR.push([wx,wz,SCENIC_RAD[l.t]]);
     if(l.t==='fir'){ if(!tooClose(wx,wz))g.add(mkFir(wx,wz,1+Math.random()*.5)); continue;}
     else if(l.t==='oak'){ if(!tooClose(wx,wz))g.add(mkOak(wx,wz,1+Math.random()*.4)); continue;}
     else if(MTN_T[l.t]){g.add(mkPeak(wx,wz,MTN_T[l.t][0],MTN_T[l.t][1])); h=MTN_T[l.t][0];}
     else if(l.t==='leg'){g.add(mkLeg(wx,wz)); h=26;}
     else if(l.t==='emp'){g.add(mkEmp(wx,wz)); h=34;}
+    else if(l.t==='gorgepav'){g.add(mkGorgePavilion(wx,wz));h=17;}
+    else if(l.t==='jgarden'){g.add(mkJapaneseGarden(wx,wz));h=9;}
+    else if(l.t==='baybridge'){g.add(mkGorgeBridge(wx,wz,'bay'));h=13;}
+    else if(l.t==='tillibridge'){g.add(mkGorgeBridge(wx,wz,'tillicum'));h=14;}
+    else if(l.t==='yyjterminal'){g.add(mkYYJTerminal(wx,wz));h=12;}
+    else if(l.t==='yyjtower'){g.add(mkYYJTower(wx,wz));h=34;}
+    else if(l.t==='sidneypier'){g.add(mkSidneyPier(wx,wz));h=10;}
+    else if(l.t==='shawcentre'){g.add(mkShawCentre(wx,wz));h=15;}
+    else if(l.t==='beaconpark'){g.add(mkBeaconPark(wx,wz));h=9;}
+    else if(l.t==='swartzterminal'){g.add(mkSwartzTerminal(wx,wz));h=9;}
+    else if(l.t==='finlookout'){g.add(mkFinlaysonLookout(wx,wz));h=11;}
+    else if(l.t==='rockcut'){const o=mkRockCut(wx,wz);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=16;}
+    else if(l.t==='goldstream'){const o=mkGoldstreamGate(wx,wz);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=10;}
+    else if(l.t==='cordovavillage'){g.add(mkCordovaVillage(wx,wz));h=13;}
+    else if(l.t==='cordovapark'){g.add(mkCordovaPark(wx,wz));h=7;}
+    else if(l.t==='bowbridge'){const o=mkBanffBowBridge(wx,wz);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=12;}
+    else if(l.t==='cascadegarden'){const o=mkCascadeGarden(wx,wz);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=21;}
     else if(l.t==='castle'){g.add(mkCastle(wx,wz)); h=42;}
     else if(l.t==='gate'||l.t==='torii'){g.add(mkGate(wx,wz)); h=12;}
     else if(l.t==='light'){g.add(mkLight(wx,wz)); h=16;}
@@ -2455,9 +2597,10 @@ function buildWorld(){
     else if(l.t==='park'){g.add(mkPark(wx,wz)); h=28;}
     else if(l.t==='orca'){g.add(mkOrca(wx,wz)); h=0;}
     else if(l.t==='peacock'){g.add(mkPeacock(wx,wz)); h=4;}
+    else if(l.t==='airliner'||l.t==='depart'){g.add(mkAirliner(wx,wz,l.t==='depart'));h=0;}
     else if(l.t==='seaplane'||l.t==='plane'||l.t==='flyby'){g.add(mkSeaplane(wx,wz)); h=0;}
     else if(l.t==='cntower'){g.add(mkCNTower(wx,wz)); h=101;}
-    else if(l.t==='cdntower'){g.add(mkCalgaryTower(wx,wz)); h=63;}
+    else if(l.t==='cdntower'){const o=mkCalgaryTower(wx,wz);o.scale.y=1.28;g.add(o);h=81;}
     else if(l.t==='saddledome'){g.add(mkSaddledome(wx,wz)); h=16;}
     else if(l.t==='rogers'){g.add(mkRogersCentre(wx,wz)); h=20;}
     else if(l.t==='ferris'){g.add(mkFerris(wx,wz)); h=24;}
@@ -2471,9 +2614,9 @@ function buildWorld(){
     else if(l.t==='windturbine'){g.add(mkWindTurbine(wx,wz)); h=56;}
     else if(l.t==='courthouse'){g.add(mkCourts(wx,wz)); h=42;}
     else if(l.t==='crownoffice'){g.add(mkCentrium(wx,wz)); h=32;}
-    else if(l.t==='thebow'){g.add(mkBowTower(wx,wz)); g.add(mkPlazaArt(wx+13,wz+13)); h=57;}
-    else if(l.t==='bankers'){g.add(mkGlassTower(wx,wz,44,0x7a8290)); h=46;}
-    else if(l.t==='calcore'){g.add(mkCalgaryCore(wx,wz)); h=64;}
+    else if(l.t==='thebow'){const o=mkBowTower(wx,wz);o.scale.y=1.24;g.add(o);g.add(mkPlazaArt(wx+13,wz+13));h=71;}
+    else if(l.t==='bankers'){const o=mkGlassTower(wx,wz,44,0x667b90);o.scale.y=1.20;g.add(o);h=55;}
+    else if(l.t==='calcore'){const o=mkCalgaryCore(wx,wz);o.scale.y=1.22;g.add(o);h=78;}
     else if(l.t==='skyline'){g.add(mkGlassTower(wx,wz,40,0x566070)); h=42;}
     else if(l.t==='johnson'){g.add(mkJohnsonBridge(wx,wz)); h=14;}
     else if(l.t==='fishwharf'){g.add(mkFishermansWharf(wx,wz)); h=8;}
@@ -2483,12 +2626,12 @@ function buildWorld(){
     else if(BOAT_T[l.t]!==undefined && l.t!=='sailboat'){g.add(mkBoat(wx,wz,BOAT_T[l.t])); h=4;}
     else if(l.t==='sailboat'){g.add(mkSail(wx,wz)); h=9;}
     else if(SKIP_T.indexOf(l.t)>=0){ continue; }
-    else if(l.t==='springs'){const o=mkBanffSprings(wx,wz); if(hd!=null)o.rotation.y=hd; g.add(o); h=48;}
-    else if(l.t==='rimrock'){const o=mkRimrock(wx,wz); if(hd!=null)o.rotation.y=hd; g.add(o); h=22;}
-    else if(l.t==='banffstrip'){const o=mkBanffStrip(wx,wz,l.shops||6); if(hd!=null)o.rotation.y=hd; g.add(o); h=14;}
-    else if(l.t==='gondola'){const o=mkSulphurGondola(wx,wz); if(hd!=null)o.rotation.y=hd; g.add(o); h=8;}
+    else if(l.t==='springs'){const o=mkBanffSprings(wx,wz);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=48;}
+    else if(l.t==='rimrock'){const o=mkRimrock(wx,wz);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=22;}
+    else if(l.t==='banffstrip'){const o=mkBanffStrip(wx,wz,l.shops||6);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=14;}
+    else if(l.t==='gondola'){const o=mkSulphurGondola(wx,wz);if(hd!=null)o.rotation.y=hd;if(l.roadT!=null)o.position.y=roadY(l.roadT)-.35;g.add(o);h=8;}
     else { g.add(mkStruct(l.t,wx,wz)); h=(STRUCT[l.t]?STRUCT[l.t].h:12); }
-    if(l.label) g.add(mkLabel(l.label,wx,wz,h+5));
+    if(l.label){const label=mkLabel(l.label,wx,wz,h+5);if(l.roadT!=null)label.position.y+=roadY(l.roadT)-.35;g.add(label);}
   }
   // ambient roadside conifers (Vancouver Island treeline) — cleared near landmarks
   const TREE_STEP=Math.max(4,Math.round((circuit.climb?7:16)*(0.17/SCALE))), SIDES=circuit.climb?[1,-1]:null;
@@ -2496,7 +2639,13 @@ function buildWorld(){
   for(let i=0;i<SAMPLES;i+=TREE_STEP){const t=i/SAMPLES; let _sk=false; for(const cz of CLEARZ){let dt=Math.abs(t-cz); dt=Math.min(dt,1-dt); if(dt<0.05){_sk=true;break;}} if(_sk)continue;
     const p=curve.getPointAt(t),tan=curve.getTangentAt(t).normalize(),nn=new THREE.Vector3(-tan.z,0,tan.x).normalize();
     for(const side of (SIDES||[i%32<16?1:-1])){
+      if(calgaryRevealAt(t)>.02&&(nn.x*side*(CALGARY_CITY_FOCUS.x-p.x)+nn.z*side*(CALGARY_CITY_FOCUS.z-p.z))>0)continue;
+      /* Keep the shore recognizable, but open two out of every three sea-facing gaps so the
+         ocean reads as a continuous vista instead of a one-frame glimpse between trees. */
+      if(COASTAL_WATER_FOCUS&&Math.floor(i/TREE_STEP)%3!==0&&
+         (nn.x*side*(COASTAL_WATER_FOCUS.x-p.x)+nn.z*side*(COASTAL_WATER_FOCUS.z-p.z))>0)continue;
       const off=ROAD_W/2+12+Math.random()*40, sp=p.clone().addScaledVector(nn,side*off);
+      let blocked=false;for(const q of SCENIC_CLEAR){const dx=sp.x-q[0],dz=sp.z-q[1];if(dx*dx+dz*dz<q[2]*q[2]){blocked=true;break;}}if(blocked)continue;
       if(tooClose(sp.x,sp.z,ROAD_W/2+4))continue;
       const tree=mkFir(sp.x,sp.z,1+Math.random()*.6); tree.position.y=slopeY(t,off); g.add(tree);}}
   // distant backdrop: mountain ranges, or a city skyline for flat urban circuits
@@ -2525,6 +2674,24 @@ function buildWorld(){
     for(let i=0;i<13;i++){const a=.30+i/12*2.54,rr=R+((i*67)%125),hh=105+((i*83)%105),rad=82+((i*41)%58),M=mkMassif(Math.cos(a)*rr,Math.sin(a)*rr,hh,rad);M.position.y=hh/2-27;g.add(M);}
     /* Lower, forested headlands frame the harbour without enclosing the city. */
     for(let i=0;i<6;i++){const a=2.60+i/5*.72,rr=R-230+((i*39)%65),hh=34+((i*31)%27),M=mkMassif(Math.cos(a)*rr,Math.sin(a)*rr,hh,64+((i*23)%28));M.position.y=hh/2-22;g.add(M);}
+  } else if(TRACK_ID==='gorge'){
+    /* The Gorge is a sheltered urban waterway: low wooded ridges, not an alpine wall. */
+    const WORLD_R=Math.hypot(_mxx-_mnx,_mxy-_mny)*SCALE*.5,R=Math.max(690,WORLD_R+330);
+    for(let i=0;i<16;i++){const a=i/16*Math.PI*2,rr=R+((i*47)%90),hh=24+((i*31)%34),M=mkMassif(Math.cos(a)*rr,Math.sin(a)*rr,hh,65+((i*19)%35));M.position.y=hh/2-24;g.add(M);}
+  } else if(TRACK_ID==='sidney'){
+    /* Sidney faces the low Gulf and San Juan Islands, with Mount Baker alone above them. */
+    const WORLD_R=Math.hypot(_mxx-_mnx,_mxy-_mny)*SCALE*.5,R=Math.max(790,WORLD_R+350);
+    for(let i=0;i<12;i++){const a=-.78+i/11*1.56,rr=R+((i*53)%100),hh=22+((i*29)%38),M=mkMassif(Math.cos(a)*rr,Math.sin(a)*rr,hh,72+((i*23)%36));M.position.y=hh/2-25;g.add(M);}
+    const baker=mkMassif(R+260,40,178,112);baker.position.y=64;g.add(baker);
+  } else if(TRACK_ID==='cordova'){
+    /* Cordova Bay opens east across Haro Strait: beach, island ridges and distant Mount Baker. */
+    const WORLD_R=Math.hypot(_mxx-_mnx,_mxy-_mny)*SCALE*.5,R=Math.max(810,WORLD_R+360);
+    for(let i=0;i<13;i++){const a=-.92+i/12*1.84,rr=R+((i*41)%115),hh=20+((i*37)%42),M=mkMassif(Math.cos(a)*rr,Math.sin(a)*rr,hh,68+((i*29)%42));M.position.y=hh/2-25;g.add(M);}
+    const baker=mkMassif(R+310,55,190,120);baker.position.y=70;g.add(baker);
+  } else if(TRACK_ID==='malahat'){
+    /* Malahat: layered Vancouver Island ridges above Finlayson Arm, rugged but below Banff scale. */
+    const WORLD_R=Math.hypot(_mxx-_mnx,_mxy-_mny)*SCALE*.5,R=Math.max(820,WORLD_R+350);
+    for(let i=0;i<18;i++){const a=i/18*Math.PI*2,rr=R+((i*59)%120),hh=72+((i*73)%92),M=mkMassif(Math.cos(a)*rr,Math.sin(a)*rr,hh,86+((i*31)%48));M.position.y=hh/2-28;g.add(M);if(i%3===0){const F=mkMassif(Math.cos(a+.05)*(rr-150),Math.sin(a+.05)*(rr-150),hh*.45,64);F.position.y=hh*.20-20;g.add(F);}}
   } else {
     const RINGK=Math.min(Math.max(SCALE/0.255,1),1.4);
     const WORLD_R=Math.hypot(_mxx-_mnx,_mxy-_mny)*SCALE*0.5;                    // v60: half-diagonal of circuit bounds
@@ -2923,6 +3090,20 @@ function updateCamera(dt){
   else if(view==='FAR'){desired=p.clone().addScaledVector(f,-32).addScaledVector(r,-player.steer*3.4).add(new THREE.Vector3(0,15,0)); look=p.clone().addScaledVector(f,40).add(new THREE.Vector3(0,3.4,0)).lerp(apex,.62); fovT=70+player.speed*.04;}
   else if(view==='CINEMATIC'){desired=p.clone().addScaledVector(f,-9).addScaledVector(r,7.5).add(new THREE.Vector3(0,3.0,0)); look=p.clone().addScaledVector(f,16).add(new THREE.Vector3(0,1.5,0)).lerp(apex,.48); fovT=55+player.speed*.03; follow=1-Math.pow(.05,dt);}
   else{desired=p.clone().addScaledVector(f,-14).addScaledVector(r,-player.steer*3.4).add(new THREE.Vector3(0,6.8,0)); look=p.clone().addScaledVector(f,32).add(new THREE.Vector3(0,2.6,0)).lerp(apex,.58); fovT=64+player.speed*.05;}
+  const reveal=calgaryRevealAt(player.progress)*THREE.MathUtils.smoothstep(player.speed,18,68);
+  if(reveal>.001&&(view==='CHASE'||view==='FAR')){
+    const lookDist=Math.max(28,look.distanceTo(p)),scenicDir=look.clone().sub(p).normalize(),cityDir=CALGARY_CITY_FOCUS.clone().sub(p).normalize();
+    scenicDir.lerp(cityDir,(view==='FAR'?.105:.125)*reveal).normalize();look.copy(p).addScaledVector(scenicDir,lookDist);
+  }
+  if(COASTAL_WATER_FOCUS&&(view==='CHASE'||view==='FAR')){
+    const waterDir=COASTAL_WATER_FOCUS.clone().sub(p);waterDir.y=0;waterDir.normalize();
+    const facing=f.x*waterDir.x+f.z*waterDir.z;
+    const coastReveal=THREE.MathUtils.smoothstep(facing,-.28,.58)*THREE.MathUtils.smoothstep(player.speed,14,62);
+    if(coastReveal>.001){
+      const lookDist=Math.max(28,look.distanceTo(p)),scenicDir=look.clone().sub(p).normalize();
+      scenicDir.lerp(waterDir,(view==='FAR'?.105:.085)*coastReveal).normalize();look.copy(p).addScaledVector(scenicDir,lookDist);
+    }
+  }
   camPos.lerp(desired,follow); camTarget.lerp(look,follow); camera.position.copy(camPos); if(player.shake>0){ player.shake-=dt; const sh=Math.max(0,player.shake)*3.2; camera.position.x+=(Math.random()-.5)*sh; camera.position.y+=(Math.random()-.5)*sh; } camera.up.set(Math.sin(-(player.roll||0)*0.55),1,0).normalize(); camera.lookAt(camTarget); /* v65: camera banks subtly */ camera.fov=THREE.MathUtils.lerp(camera.fov,fovT+(player.boostT>0?7:0),.08); /* v63: boost FOV kick (restored in v71) */ camera.updateProjectionMatrix(); sunFollow();
 }
 
