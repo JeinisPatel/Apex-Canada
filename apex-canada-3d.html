@@ -1221,6 +1221,7 @@ if(MODE==='quali'){
 
 // ---- race flow: start lights -> racing -> finished (v56-style timing + BASELAP) ----
 const BASELAP={harbour:41,gorge:32,sidney:35.5,malahat:29,cordova:27,stampede:45,exhibition:35,banff:100};
+/* BUILD v101 — external grid soundtrack: full-volume grid theme, race mix ducking and procedural alternatives */
 /* BUILD v100 — researched landmark realism: façade depth, glazing, setbacks, arches and château rooflines */
 /* BUILD v99 — BC coastal reveal pass: Malahat road-floor fix and longer ocean sightlines */
 /* BUILD v98 — remaining Canadian identity pass: Malahat, Sidney, Gorge, Cordova Bay and Banff */
@@ -1430,9 +1431,47 @@ function finishRace(){
 
 // --- engine audio (WebAudio; renderer-agnostic, in the spirit of v56 audioUpdate) ---
 let actx=null, eng=null, sub=null, engGain=null, windSrc=null, windGain=null, windFilter=null, rivalOsc=null, rivalGain=null, rivalPan=null, audioOn=true, nbuf=null;
-const music={on:true,next:0,step:0,gain:null,duck:null}; let trackIdx=0;
+const GRID_THEME_NAME='F1 Grid Theme';
+const GRID_THEME_SRC='./assets/audio/infinitencsmusic-f1-movie-music-379154.mp3';
+const gridTheme=new Audio(GRID_THEME_SRC);
+gridTheme.preload='auto'; gridTheme.loop=false; gridTheme.playsInline=true; gridTheme.volume=0;
+const gridAudio={started:false,starting:false,blocked:false,ended:false,target:0};
+const music={on:true,next:0,step:0,gain:null,duck:null}; let trackIdx=-1;
+function musicName(){ return trackIdx<0?GRID_THEME_NAME:TRACKS[trackIdx].n; }
+function gridThemeStart(force=false){
+  if(trackIdx!==-1||!music.on||!audioOn||race.state==='finished'||gridAudio.ended)return;
+  if(gridAudio.started||gridAudio.starting||(!force&&gridAudio.blocked))return;
+  if(force)gridAudio.blocked=false;
+  gridAudio.starting=true;
+  const play=gridTheme.play();
+  if(play&&play.then)play.then(()=>{gridAudio.started=true;gridAudio.starting=false;gridAudio.blocked=false;if(typeof updateMusicBtn==='function')updateMusicBtn();}).catch(()=>{gridAudio.starting=false;gridAudio.blocked=true;if(typeof updateMusicBtn==='function')updateMusicBtn();});
+  else {gridAudio.started=true;gridAudio.starting=false;}
+}
+function gridThemeStop(reset=false){
+  gridAudio.target=0;
+  if(reset){gridTheme.pause();gridTheme.currentTime=0;gridTheme.volume=0;gridAudio.started=false;gridAudio.starting=false;gridAudio.blocked=false;gridAudio.ended=false;}
+}
+function gridThemeTick(){
+  const selected=trackIdx===-1&&music.on&&audioOn&&race.state!=='finished'&&!paused;
+  gridAudio.target=selected?((race.state==='countdown'||race.state==='lobby')?.56:.22):0;
+  const ease=gridAudio.target>gridTheme.volume?.09:.055;
+  gridTheme.volume+= (gridAudio.target-gridTheme.volume)*ease;
+  if(selected&&!gridAudio.started)gridThemeStart();
+  if(!selected&&gridTheme.volume<.005&&!gridTheme.paused){gridTheme.pause();gridAudio.started=false;}
+}
+function cycleMusicTrack(){
+  if(!music.on){music.on=true;trackIdx=-1;gridAudio.ended=false;gridTheme.currentTime=0;}
+  else if(trackIdx<TRACKS.length-1)trackIdx++;
+  else {trackIdx=-1;music.on=false;}
+  music.next=0;
+  if(trackIdx===-1&&music.on)gridThemeStart(true); else gridThemeStop(true);
+  if(typeof updateMusicBtn==='function')updateMusicBtn();
+  if(typeof flash==='function')flash(music.on?'MUSIC: '+musicName():'MUSIC OFF');
+}
+gridTheme.addEventListener('ended',()=>{gridAudio.started=false;gridAudio.starting=false;gridAudio.ended=true;});
 function initAudio(){
-  if(actx) return;
+  gridThemeStart(true);
+  if(actx)return;
   try{
     actx=new (window.AudioContext||window.webkitAudioContext)();
     engGain=actx.createGain(); engGain.gain.value=0; engGain.connect(actx.destination);
@@ -1481,7 +1520,7 @@ function audioUpdate(){
   }
 }
 
-// ---- music: synth engine ported from v56 (trance / synthwave, no audio files) ----
+// ---- music: user-supplied grid theme plus generated trance / synthwave alternatives ----
 function m2f(m){return 440*Math.pow(2,(m-69)/12);}
 function mTone(t,freq,dur,type,g,slide,out){ const o=actx.createOscillator();o.type=type;o.frequency.setValueAtTime(freq,t); if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+dur); const gn=actx.createGain();gn.gain.setValueAtTime(g,t);gn.gain.exponentialRampToValueAtTime(0.001,t+dur); o.connect(gn);gn.connect(out||music.gain);o.start(t);o.stop(t+dur+0.02); }
 function mNoise(t,dur,type,freq,g,out){ const src=actx.createBufferSource();src.buffer=nbuf; const f=actx.createBiquadFilter();f.type=type;f.frequency.value=freq; const gn=actx.createGain();gn.gain.setValueAtTime(g,t);gn.gain.exponentialRampToValueAtTime(0.001,t+dur); src.connect(f);f.connect(gn);gn.connect(out||music.gain);src.start(t);src.stop(t+dur+0.02); }
@@ -1499,10 +1538,11 @@ const TRACKS=[
   {n:"Neon Strait",bpm:118,bass:[45,45,45,45,43,43,43,43,41,41,41,41,40,40,43,45],arp:[[69,72,76],[68,72,75],[64,67,72],[69,73,76]],wave:"square"},
   {n:"Redline",bpm:158,bass:[40,40,47,40,40,45,47,45,40,40,47,40,43,45,47,50],arp:[[76,79,83],[74,78,81],[71,76,79],[74,78,83]],wave:"sawtooth"},
   {n:"Grid Walk",bpm:96,bass:[36,36,36,36,39,39,43,43,36,36,36,36,41,41,43,46],arp:[[60,63,67],[60,63,67],[63,67,70],[67,70,75]],wave:"triangle"}];
-const M_TRACK=()=>TRACKS[trackIdx];
+const M_TRACK=()=>trackIdx<0?null:TRACKS[trackIdx];
 function musicTick(){
   if(!actx||!music.gain)return;
-  const playing=music.on&&audioOn&&race.state!=='finished';
+  if(trackIdx<0){music.next=0;return;}
+  const playing=music.on&&audioOn&&race.state!=='finished'&&!paused;
   if(!playing){music.next=0;return;}
   const spb=60/M_TRACK().bpm/2;
   if(!music.next){music.next=actx.currentTime+0.06;music.step=0;}
@@ -1759,7 +1799,7 @@ addEventListener('keydown', e => { const k=e.key.toLowerCase(); keys.add(k);
   if(k==='c'){ applyWX(wxIdx+1); flash('WEATHER: '+WX[wxIdx]); }
   if(k==='m'){ audioOn=!audioOn; flash(audioOn?'SOUND ON':'MUTED'); }
   if(k==='y'){ if(typeof cycleCompound==='function')cycleCompound(); }
-  if(k==='n'){ if(!music.on){music.on=true;trackIdx=0;flash('MUSIC: '+TRACKS[0].n);} else {trackIdx++; if(trackIdx>=TRACKS.length){trackIdx=0;music.on=false;flash('MUSIC OFF');} else flash('MUSIC: '+TRACKS[trackIdx].n);} music.next=0; if(typeof updateMusicBtn==='function')updateMusicBtn(); }
+  if(k==='n')cycleMusicTrack();
   initAudio(); if(actx&&actx.state==='suspended') actx.resume(); });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
 addEventListener('gamepadconnected',e=>{PAD.index=e.gamepad.index;PAD.gamepad=e.gamepad;PAD.connected=true;PAD.announced=false;refreshControlUI();});
@@ -1767,8 +1807,8 @@ addEventListener('gamepaddisconnected',e=>{if(PAD.index===e.gamepad.index){PAD.i
 // on-screen track switcher (mirrors the N key)
 const musicBtn=document.createElement('button'); musicBtn.id='musicbtn'; musicBtn.tabIndex=-1;
 musicBtn.style.cssText='position:fixed;left:12px;bottom:12px;z-index:45;background:rgba(18,22,30,.78);color:#bfe3ff;border:1px solid rgba(255,255,255,.16);border-radius:16px;padding:7px 13px;font:600 12px/1 system-ui,-apple-system,sans-serif;letter-spacing:.03em;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)';
-function updateMusicBtn(){ if(musicBtn) musicBtn.textContent = music.on ? ('\u266A '+TRACKS[trackIdx].n) : '\u266A Music Off'; }
-musicBtn.addEventListener('click',()=>{ if(!music.on){music.on=true;trackIdx=0;} else {trackIdx++; if(trackIdx>=TRACKS.length){trackIdx=0;music.on=false;}} music.next=0; updateMusicBtn(); if(music.on&&typeof flash==='function')flash('MUSIC: '+TRACKS[trackIdx].n); initAudio(); if(actx&&actx.state==='suspended')actx.resume(); musicBtn.blur(); });
+function updateMusicBtn(){ if(musicBtn) musicBtn.textContent = music.on ? ('\u266A '+(trackIdx<0&&gridAudio.blocked?'Play ':'')+musicName()) : '\u266A Music Off'; }
+musicBtn.addEventListener('click',()=>{ if(trackIdx<0&&music.on&&(gridAudio.blocked||!gridAudio.started)){initAudio();if(actx&&actx.state==='suspended')actx.resume();gridThemeStart(true);flash('MUSIC: '+musicName());updateMusicBtn();musicBtn.blur();return;} cycleMusicTrack(); initAudio(); if(actx&&actx.state==='suspended')actx.resume(); gridThemeStart(true); musicBtn.blur(); });
 document.body.appendChild(musicBtn); updateMusicBtn();
 
 /* ---- on-screen touch controls (iOS / Android) ---- */
@@ -1797,7 +1837,8 @@ document.querySelectorAll('#modes [data-m]').forEach(b=>{ if(b.dataset.m===MODE)
 {const db=document.getElementById('diffbtn'); const setD=()=>{ if(db)db.textContent='AI \u00b7 '+DIFFS[diffIdx].n; }; setD(); if(db)db.addEventListener('click',()=>{ diffIdx=(diffIdx+1)%DIFFS.length; setD(); flash('DIFFICULTY \u00b7 '+DIFFS[diffIdx].n); }); }
 {const pbn=document.getElementById('pitbtn'); if(pbn)pbn.addEventListener('click',()=>togglePit());}
 const pauseEl=document.getElementById('pause'); let paused=false;
-function setPause(p){ paused=p; if(pauseEl)pauseEl.hidden=!p; if(!p&&typeof music!=='undefined')music.next=0; }
+gridThemeStart();
+function setPause(p){ paused=p; if(pauseEl)pauseEl.hidden=!p; if(!p&&typeof music!=='undefined'){music.next=0;gridThemeStart(true);} }
 function togglePause(){ if(race.state==='finished')return; setPause(!paused); }
 function setPitBtn(){ const on=!!(typeof player!=='undefined'&&player.wantPit); const pb=document.getElementById('pitbtn'),tp=document.getElementById('tc-pit'); if(pb)pb.classList.toggle('armed',on); if(tp)tp.classList.toggle('armed',on); }
 function togglePit(){ if(race.state!=='racing'||player.pitT>0)return; player.wantPit=!player.wantPit; flash(player.wantPit?'PIT ARMED \u2014 BOX THIS LAP':'PIT CANCELLED'); setPitBtn(); }
@@ -3306,7 +3347,7 @@ function dynWX(dt){
   const ni=Math.min(Math.max(wxIdx+d,0),WX.length-1);
   if(ni!==wxIdx){ applyWX(ni); flash('WEATHER: '+WX[wxIdx]); }
 }
-function loop(){const dt=Math.min(clock.getDelta(),.033); pollControls(); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); towerTick(dt); ghostTick(dt); skidsUpdate(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); if(gearEl){const _gd=gearData(player);gearEl.textContent=_gd.gear||'N';} { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background=CMP(player).col;} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
+function loop(){const dt=Math.min(clock.getDelta(),.033); pollControls(); gridThemeTick(); if(paused){ if(engGain)engGain.gain.value=0; if(lightningLight)lightningLight.intensity=0; fxx.clearRect(0,0,fxc.width,fxc.height); postRender(); requestAnimationFrame(loop); return; } updateRace(dt); cars.forEach(c=>updateCar(c,dt)); resolveContacts(dt); if(net)net.update(dt); updateCamera(dt); audioUpdate(); musicTick(); updateRain(dt); stormUpdate(dt); dynWX(dt); speedFX(dt); fxParticles(dt); radioTick(dt); towerTick(dt); ghostTick(dt); skidsUpdate(dt); { const _t=performance.now()*0.001; for(let _i=0;_i<ANIM.length;_i++) ANIM[_i](_t,dt); } speedEl.textContent=Math.round(player.speed*3.1).toString().padStart(3,'0'); if(gearEl){const _gd=gearData(player);gearEl.textContent=_gd.gear||'N';} { const _fr=player.maxSpeed?player.speed/player.maxSpeed:0; speedEl.style.color=player.boostT>0?'#ffd23a':((player.tow||0)>0.55?'#b48cff':(_fr>0.92?'#39d2c0':'')); speedEl.style.textShadow=player.boostT>0?'0 0 26px rgba(255,210,58,.85)':(_fr>0.8?('0 0 '+Math.round((_fr-0.8)*95)+'px rgba(57,210,192,.8)'):'0 2px 14px rgba(0,0,0,.5)'); } lapEl.textContent=(MODE==='quali')?player.lap:Math.min(player.lap,LAPS); if(timeEl)timeEl.textContent=(MODE==='quali')?(race.phase==='hot'?fmt(race.clock):(race.phase==='out'?'OUT':'0.000')):fmt(race.state==='racing'?race.clock-race.lapStart:0); if(bestEl)bestEl.textContent=isFinite(race.best)?fmt(race.best):'--:--.---'; if(drsEl)drsEl.classList.toggle('on',!!player.drsActive); if(tyreFill){const _tv=player.tyre||1; tyreFill.style.width=(_tv*100).toFixed(0)+'%'; tyreFill.style.background=CMP(player).col;} statusEl.textContent=(MODE==='quali')?(race.state==='finished'?'LAP SET':(race.phase==='out'?'OUT LAP \u2014 BUILD SPEED':'HOT LAP')):(race.state==='countdown'?'LIGHTS OUT\u2026':(race.state==='finished'?'FINISHED':circuit.name.toUpperCase()+' \u00b7 '+TODS[todIdx].name)); postRender(); requestAnimationFrame(loop);}
   </script>
 </body>
 </html>
